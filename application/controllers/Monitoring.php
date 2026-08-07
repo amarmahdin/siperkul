@@ -39,9 +39,19 @@ class Monitoring extends CI_Controller {
         $ruangan = $this->Monitoring_model->get_ruangan($id_gedung);
         $jadwal = $this->Monitoring_model->get_jadwal_by_hari($hari, $id_ta);
 
-        // Jam slots 07:00 to 18:00
+        // Jam slots 07:00 to 18:00 (default), dynamic if schedules go beyond
+        $min_hour = 7;
+        $max_hour = 18;
+
+        foreach ($jadwal as $j) {
+            $start_h = (int)date('H', strtotime($j->jam_mulai));
+            $end_h = (int)date('H', strtotime($j->jam_selesai) - 1);
+            if ($start_h < $min_hour) $min_hour = $start_h;
+            if ($end_h > $max_hour) $max_hour = $end_h;
+        }
+
         $jam_slots = [];
-        for($i = 7; $i <= 18; $i++) {
+        for($i = $min_hour; $i <= $max_hour; $i++) {
             $jam_slots[] = str_pad($i, 2, '0', STR_PAD_LEFT) . ':00';
         }
 

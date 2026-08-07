@@ -14,7 +14,6 @@
             <div class="card">
                 <div class="card-header d-flex justify-content-between align-items-center">
                     <h3 class="card-title">Daftar Dosen</h3>
-                    <button class="btn btn-primary btn-sm ml-auto" onclick="add_dosen()"><i class="fas fa-plus"></i> Tambah Data</button>
                 </div>
                 <div class="card-body">
                     <table id="table_dosen" class="table table-striped table-bordered dt-responsive nowrap" style="width:100%">
@@ -146,12 +145,7 @@ document.addEventListener('DOMContentLoaded', function () {
         });
     });
 
-    window.add_dosen = function() {
-        $('#form')[0].reset();
-        $('[name="id_dosen"]').val('');
-        $('#modal_form').modal('show');
-        $('.modal-title').text('Tambah Dosen');
-    };
+
 
     window.save = function() {
         $('#btnSave').text('Menyimpan...');
@@ -181,4 +175,4 @@ document.addEventListener('DOMContentLoaded', function () {
         });
     };
 });
-</script
+</script>
