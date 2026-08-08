@@ -1,4 +1,4 @@
-<?php
+﻿<?php
 defined('BASEPATH') OR exit('No direct script access allowed');
 
 class Dashboard extends CI_Controller {
@@ -7,9 +7,6 @@ class Dashboard extends CI_Controller {
         parent::__construct();
         if (!$this->session->userdata('logged_in')) {
             redirect('auth');
-        }
-        if ($this->session->userdata('role') === 'Viewer') {
-            redirect('monitoring');
         }
         $this->load->model('Dashboard_model');
     }

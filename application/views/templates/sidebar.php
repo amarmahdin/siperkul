@@ -1,4 +1,4 @@
-    <!-- Main Sidebar Container -->
+﻿    <!-- Main Sidebar Container -->
     <aside class="main-sidebar sidebar-dark-primary elevation-4">
         <!-- Brand Logo -->
         <a href="<?= base_url(($this->session->userdata('role') === 'Viewer') ? 'monitoring' : 'dashboard') ?>" class="brand-link text-center">
@@ -12,14 +12,12 @@
             <nav class="mt-4">
                 <ul class="nav nav-pills nav-sidebar flex-column" data-widget="treeview" role="menu" data-accordion="false">
                     
-                    <?php if($this->session->userdata('role') !== 'Viewer'): ?>
                     <li class="nav-item">
                         <a href="<?= base_url('dashboard') ?>" class="nav-link <?= ($this->uri->segment(1) == 'dashboard') ? 'active' : '' ?>">
                             <i class="nav-icon fas fa-tachometer-alt"></i>
                             <p>Dashboard</p>
                         </a>
                     </li>
-                    <?php endif; ?>
 
                     <?php if(in_array($this->session->userdata('role'), ['Administrator', 'BAAK'])): ?>
                     <li class="nav-header">MASTER DATA</li>
@@ -60,7 +58,6 @@
                             <p>Ruangan</p>
                         </a>
                     </li>
-                    <?php endif; ?>
 
                     <li class="nav-header">TRANSAKSI</li>
                     <li class="nav-item">
@@ -90,7 +87,6 @@
                             <p>Audit Trail</p>
                         </a>
                     </li>
-                    <?php endif; ?>
                     
                 </ul>
             </nav>
