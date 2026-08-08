@@ -11,7 +11,7 @@ class Auth extends CI_Controller {
 
     public function index() {
         if ($this->session->userdata('id_user')) {
-            redirect('dashboard');
+            redirect($this->_home_by_role($this->session->userdata('role')));
         }
         $this->load->view('auth/login');
     }
@@ -39,10 +39,14 @@ class Auth extends CI_Controller {
                     'logged_in'    => TRUE
                 );
                 $this->session->set_userdata($session_data);
-                
+
                 $this->Audit_model->log_activity('Login', 'User login ke sistem');
 
-                echo json_encode(['status' => 'success', 'message' => 'Login Berhasil!']);
+                echo json_encode([
+                    'status' => 'success',
+                    'message' => 'Login Berhasil!',
+                    'redirect' => base_url($this->_home_by_role($user->role))
+                ]);
             } else {
                 echo json_encode(['status' => 'error', 'message' => 'Password salah!']);
             }
@@ -55,5 +59,9 @@ class Auth extends CI_Controller {
         $this->Audit_model->log_activity('Logout', 'User logout dari sistem');
         $this->session->sess_destroy();
         redirect('auth');
+    }
+
+    private function _home_by_role($role) {
+        return ($role === 'Viewer') ? 'monitoring' : 'dashboard';
     }
 }

@@ -159,7 +159,7 @@ $(document).ready(function() {
                         timer: 1500,
                         showConfirmButton: false
                     }).then(() => {
-                        window.location.href = '<?= base_url("dashboard") ?>';
+                        window.location.href = response.redirect || '<?= base_url("dashboard") ?>';
                     });
                 } else {
                     Swal.fire({

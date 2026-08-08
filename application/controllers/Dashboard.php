@@ -8,6 +8,9 @@ class Dashboard extends CI_Controller {
         if (!$this->session->userdata('logged_in')) {
             redirect('auth');
         }
+        if ($this->session->userdata('role') === 'Viewer') {
+            redirect('monitoring');
+        }
         $this->load->model('Dashboard_model');
     }
 
