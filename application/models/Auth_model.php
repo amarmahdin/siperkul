@@ -17,25 +17,29 @@ class Auth_model extends CI_Model {
     }
 
     /**
-     * Map Viewer/dosen login ke tb_dosen via email, lalu kode_dosen = username.
+     * Map Viewer (dosen) ke tb_dosen.
+     * Utama: username login = kode_dosen (berlaku untuk login lokal & SSO).
+     * Cadangan: email user = email dosen (untuk SSO jika username beda).
      */
     public function get_dosen_for_user($user) {
         if (!$user) {
             return null;
         }
 
-        if (!empty($user->email)) {
-            $email = strtolower(trim(str_replace(array("\r", "\n"), '', $user->email)));
-            $normalized = "LOWER(TRIM(REPLACE(REPLACE(IFNULL(email, ''), CHAR(13), ''), CHAR(10), '')))";
-            $this->db->where($normalized . ' = ' . $this->db->escape($email), NULL, FALSE);
+        // 1) username = kode_dosen
+        if (!empty($user->username)) {
+            $this->db->where('kode_dosen', $user->username);
             $dosen = $this->db->get('tb_dosen')->row();
             if ($dosen) {
                 return $dosen;
             }
         }
 
-        if (!empty($user->username)) {
-            $this->db->where('kode_dosen', $user->username);
+        // 2) email user = email dosen
+        if (!empty($user->email)) {
+            $email = strtolower(trim(str_replace(array("\r", "\n"), '', $user->email)));
+            $normalized = "LOWER(TRIM(REPLACE(REPLACE(IFNULL(email, ''), CHAR(13), ''), CHAR(10), '')))";
+            $this->db->where($normalized . ' = ' . $this->db->escape($email), NULL, FALSE);
             $dosen = $this->db->get('tb_dosen')->row();
             if ($dosen) {
                 return $dosen;
