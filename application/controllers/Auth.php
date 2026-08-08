@@ -146,6 +146,16 @@ class Auth extends CI_Controller {
     }
 
     private function _set_user_session($user) {
+        $id_dosen = null;
+        $nama_dosen = null;
+        if ($user->role === 'Viewer') {
+            $dosen = $this->Auth_model->get_dosen_for_user($user);
+            if ($dosen) {
+                $id_dosen = $dosen->id_dosen;
+                $nama_dosen = $dosen->nama;
+            }
+        }
+
         $this->session->set_userdata(array(
             'id_user'      => $user->id_user,
             'username'     => $user->username,
@@ -153,6 +163,8 @@ class Auth extends CI_Controller {
             'role'         => $user->role,
             'id_fakultas'  => $user->id_fakultas,
             'id_prodi'     => $user->id_prodi,
+            'id_dosen'     => $id_dosen,
+            'nama_dosen'   => $nama_dosen,
             'logged_in'    => TRUE
         ));
     }

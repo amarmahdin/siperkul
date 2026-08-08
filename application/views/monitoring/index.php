@@ -3,7 +3,14 @@
         <div class="container-fluid">
             <div class="row mb-2">
                 <div class="col-sm-6">
-                    <h1 class="m-0" style="color: var(--primary-color); font-weight: 700;">Monitoring Ruangan</h1>
+                    <h1 class="m-0" style="color: var(--primary-color); font-weight: 700;"><?= isset($title) ? $title : 'Monitoring Ruangan' ?></h1>
+                    <?php if (!empty($is_viewer)): ?>
+                        <?php if (!empty($dosen_linked)): ?>
+                            <p class="text-muted mb-0 mt-1">Menampilkan jadwal mengajar: <strong><?= htmlspecialchars($nama_dosen) ?></strong></p>
+                        <?php else: ?>
+                            <p class="text-danger mb-0 mt-1">Akun belum terhubung ke data dosen. Pastikan email/kode dosen sama dengan data di Master Dosen.</p>
+                        <?php endif; ?>
+                    <?php endif; ?>
                 </div>
             </div>
         </div>

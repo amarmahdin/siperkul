@@ -12,7 +12,11 @@ class Monitoring extends CI_Controller {
     }
 
     public function index() {
-        $data['title'] = 'Monitoring Ruangan Realtime';
+        $is_viewer = $this->session->userdata('role') === 'Viewer';
+        $data['title'] = $is_viewer ? 'Monitoring Jadwal Saya' : 'Monitoring Ruangan Realtime';
+        $data['is_viewer'] = $is_viewer;
+        $data['nama_dosen'] = $this->session->userdata('nama_dosen');
+        $data['dosen_linked'] = (bool) $this->session->userdata('id_dosen');
         
         $data['gedung'] = $this->db->get('tb_gedung')->result();
 
@@ -36,8 +40,13 @@ class Monitoring extends CI_Controller {
         $ta_aktif = $this->db->get_where('tb_tahun_akademik', ['status' => 1])->row();
         $id_ta = $ta_aktif ? $ta_aktif->id_ta : 0;
 
-        $ruangan = $this->Monitoring_model->get_ruangan($id_gedung);
-        $jadwal = $this->Monitoring_model->get_jadwal_by_hari($hari, $id_ta);
+        $id_dosen = null;
+        if ($this->session->userdata('role') === 'Viewer') {
+            $id_dosen = $this->session->userdata('id_dosen') ? $this->session->userdata('id_dosen') : 0;
+        }
+
+        $ruangan = $this->Monitoring_model->get_ruangan($id_gedung, $id_dosen);
+        $jadwal = $this->Monitoring_model->get_jadwal_by_hari($hari, $id_ta, $id_dosen);
 
         // Jam slots 07:00 to 18:00 (default), dynamic if schedules go beyond
         $min_hour = 7;

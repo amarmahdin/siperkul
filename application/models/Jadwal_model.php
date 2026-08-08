@@ -21,6 +21,12 @@ class Jadwal_model extends CI_Model {
         // Only show for active TA
         $this->db->where('tb_tahun_akademik.status', 1);
 
+        // Viewer (dosen) hanya melihat jadwal yang diampu sendiri
+        if ($this->session->userdata('role') === 'Viewer') {
+            $id_dosen = $this->session->userdata('id_dosen');
+            $this->db->where('tb_jadwal.id_dosen', $id_dosen ? $id_dosen : 0);
+        }
+
         $i = 0;
         foreach ($this->column_search as $item) 
         {
@@ -73,6 +79,10 @@ class Jadwal_model extends CI_Model {
         $this->db->from($this->table);
         $this->db->join('tb_tahun_akademik', 'tb_tahun_akademik.id_ta = tb_jadwal.id_ta');
         $this->db->where('tb_tahun_akademik.status', 1);
+        if ($this->session->userdata('role') === 'Viewer') {
+            $id_dosen = $this->session->userdata('id_dosen');
+            $this->db->where('tb_jadwal.id_dosen', $id_dosen ? $id_dosen : 0);
+        }
         return $this->db->count_all_results();
     }
 
