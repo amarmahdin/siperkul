@@ -102,7 +102,6 @@ class Auth extends CI_Controller {
             $email = $profile['userPrincipalName'];
         }
         $email = strtolower(trim($email));
-        $display_name = !empty($profile['displayName']) ? $profile['displayName'] : $email;
 
         if ($email === '') {
             $this->session->set_flashdata('error', 'Email Microsoft tidak ditemukan pada akun Anda.');
@@ -110,13 +109,22 @@ class Auth extends CI_Controller {
             return;
         }
 
-        $user = $this->Auth_model->get_user_by_email($email);
-        if (!$user) {
-            $user = $this->Auth_model->create_sso_user($email, $display_name);
+        $this->config->load('microsoft', TRUE);
+        $allowed_domain = strtolower((string) $this->config->item('microsoft_allowed_domain', 'microsoft'));
+        if ($allowed_domain === '') {
+            $allowed_domain = 'itpln.ac.id';
         }
 
+        $email_domain = substr(strrchr($email, '@'), 1);
+        if ($email_domain !== $allowed_domain) {
+            $this->session->set_flashdata('error', 'Hanya akun @' . $allowed_domain . ' yang diizinkan login SSO.');
+            redirect('auth');
+            return;
+        }
+
+        $user = $this->Auth_model->get_user_by_email($email);
         if (!$user) {
-            $this->session->set_flashdata('error', 'Gagal membuat atau memuat akun SSO.');
+            $this->session->set_flashdata('error', 'Akun belum terdaftar di sistem. Hubungi administrator untuk mendaftarkan email Anda.');
             redirect('auth');
             return;
         }
