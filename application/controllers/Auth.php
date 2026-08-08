@@ -122,11 +122,22 @@ class Auth extends CI_Controller {
             return;
         }
 
-        $user = $this->Auth_model->get_user_by_email($email);
+        // Email utama ada di tb_dosen; tb_users hanya akun/role (username = kode_dosen)
+        $dosen = $this->Auth_model->get_dosen_by_email($email);
+        if (!$dosen) {
+            $this->session->set_flashdata(
+                'error',
+                'Email ' . $email . ' belum terdaftar di Data Dosen. Hubungi Admin/BAAK.'
+            );
+            redirect('auth');
+            return;
+        }
+
+        $user = $this->Auth_model->get_user($dosen->kode_dosen);
         if (!$user) {
             $this->session->set_flashdata(
                 'error',
-                'Akun belum terdaftar di sistem untuk email: ' . $email . '. Pastikan email di database sama persis (tanpa spasi/enter).'
+                'Dosen ' . $dosen->kode_dosen . ' belum punya akun login (username harus sama dengan kode dosen).'
             );
             redirect('auth');
             return;

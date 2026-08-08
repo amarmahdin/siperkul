@@ -8,74 +8,29 @@ class Auth_model extends CI_Model {
         return $this->db->get('tb_users')->row();
     }
 
-    public function get_user_by_email($email) {
-        $email = strtolower(trim(str_replace(array("\r", "\n"), '', $email)));
-        // Normalize DB value too (handles accidental Enter/spaces from phpMyAdmin paste)
-        $normalized = "LOWER(TRIM(REPLACE(REPLACE(IFNULL(email, ''), CHAR(13), ''), CHAR(10), '')))";
-        $this->db->where($normalized . ' = ' . $this->db->escape($email), NULL, FALSE);
-        return $this->db->get('tb_users')->row();
-    }
-
     /**
-     * Map Viewer (dosen) ke tb_dosen.
-     * Utama: username login = kode_dosen (berlaku untuk login lokal & SSO).
-     * Cadangan: email user = email dosen (untuk SSO jika username beda).
+     * Cari dosen berdasarkan email (sumber utama untuk SSO).
      */
-    public function get_dosen_for_user($user) {
-        if (!$user) {
+    public function get_dosen_by_email($email) {
+        $email = strtolower(trim(str_replace(array("\r", "\n"), '', $email)));
+        if ($email === '') {
             return null;
         }
 
-        // 1) username = kode_dosen
-        if (!empty($user->username)) {
-            $this->db->where('kode_dosen', $user->username);
-            $dosen = $this->db->get('tb_dosen')->row();
-            if ($dosen) {
-                return $dosen;
-            }
-        }
-
-        // 2) email user = email dosen
-        if (!empty($user->email)) {
-            $email = strtolower(trim(str_replace(array("\r", "\n"), '', $user->email)));
-            $normalized = "LOWER(TRIM(REPLACE(REPLACE(IFNULL(email, ''), CHAR(13), ''), CHAR(10), '')))";
-            $this->db->where($normalized . ' = ' . $this->db->escape($email), NULL, FALSE);
-            $dosen = $this->db->get('tb_dosen')->row();
-            if ($dosen) {
-                return $dosen;
-            }
-        }
-
-        return null;
+        $normalized = "LOWER(TRIM(REPLACE(REPLACE(IFNULL(email, ''), CHAR(13), ''), CHAR(10), '')))";
+        $this->db->where($normalized . ' = ' . $this->db->escape($email), NULL, FALSE);
+        return $this->db->get('tb_dosen')->row();
     }
 
-    public function create_sso_user($email, $display_name = '') {
-        $email = strtolower(trim($email));
-        $local = strstr($email, '@', true);
-        $username = $local ? preg_replace('/[^a-zA-Z0-9._-]/', '', $local) : 'user';
-        if ($username === '') {
-            $username = 'user';
+    /**
+     * Map akun login ke dosen: username wajib = kode_dosen.
+     */
+    public function get_dosen_for_user($user) {
+        if (!$user || empty($user->username)) {
+            return null;
         }
 
-        $base = $username;
-        $n = 1;
-        while ($this->db->where('username', $username)->count_all_results('tb_users') > 0) {
-            $username = $base . $n;
-            $n++;
-            $this->db->reset_query();
-        }
-
-        $data = array(
-            'username'     => $username,
-            'password'     => password_hash(bin2hex(random_bytes(16)), PASSWORD_BCRYPT),
-            'nama_lengkap' => $display_name !== '' ? $display_name : $username,
-            'email'        => $email,
-            'role'         => 'Viewer',
-            'id_fakultas'  => null,
-            'id_prodi'     => null,
-        );
-
-        $this->db->insert('tb_users', $data);
-        return $this->get_user_by_email($email);
+        $this->db->where('kode_dosen', $user->username);
+        return $this->db->get('tb_dosen')->row();
     }
 }
