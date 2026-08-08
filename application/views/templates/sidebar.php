@@ -58,6 +58,7 @@
                             <p>Ruangan</p>
                         </a>
                     </li>
+                    <?php endif; ?>
 
                     <li class="nav-header">TRANSAKSI</li>
                     <li class="nav-item">
@@ -87,6 +88,7 @@
                             <p>Audit Trail</p>
                         </a>
                     </li>
+                    <?php endif; ?>
                     
                 </ul>
             </nav>
