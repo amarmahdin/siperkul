@@ -124,7 +124,10 @@ class Auth extends CI_Controller {
 
         $user = $this->Auth_model->get_user_by_email($email);
         if (!$user) {
-            $this->session->set_flashdata('error', 'Akun belum terdaftar di sistem. Hubungi administrator untuk mendaftarkan email Anda.');
+            $this->session->set_flashdata(
+                'error',
+                'Akun belum terdaftar di sistem untuk email: ' . $email . '. Pastikan email di database sama persis (tanpa spasi/enter).'
+            );
             redirect('auth');
             return;
         }

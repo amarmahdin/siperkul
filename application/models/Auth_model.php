@@ -9,7 +9,10 @@ class Auth_model extends CI_Model {
     }
 
     public function get_user_by_email($email) {
-        $this->db->where('email', strtolower(trim($email)));
+        $email = strtolower(trim(str_replace(array("\r", "\n"), '', $email)));
+        // Normalize DB value too (handles accidental Enter/spaces from phpMyAdmin paste)
+        $normalized = "LOWER(TRIM(REPLACE(REPLACE(IFNULL(email, ''), CHAR(13), ''), CHAR(10), '')))";
+        $this->db->where($normalized . ' = ' . $this->db->escape($email), NULL, FALSE);
         return $this->db->get('tb_users')->row();
     }
 
