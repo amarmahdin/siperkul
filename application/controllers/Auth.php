@@ -136,6 +136,7 @@ class Auth extends CI_Controller {
     }
 
     public function logout() {
+        // Audit may be skipped if user already deleted; always clear session
         $this->Audit_model->log_activity('Logout', 'User logout dari sistem');
         $this->session->sess_destroy();
         redirect('auth');

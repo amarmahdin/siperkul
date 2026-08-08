@@ -71,16 +71,34 @@ class Audit_model extends CI_Model {
     public function log_activity($aktivitas, $keterangan = '')
     {
         $id_user = $this->session->userdata('id_user');
-        if (!$id_user) return; // Skip if user session is not set
+        if (!$id_user) {
+            return;
+        }
+
+        // Skip if user was deleted while still logged in (FK would fail)
+        $user_exists = $this->db->where('id_user', $id_user)->count_all_results('tb_users') > 0;
+        if (!$user_exists) {
+            return;
+        }
 
         $data = array(
             'id_user'    => $id_user,
-            'action'     => $aktivitas,   // kolom action di DB original
-            'aktivitas'  => $aktivitas,   // kolom aktivitas di DB extended
-            'keterangan' => $keterangan,
-            'tanggal'    => date('Y-m-d H:i:s'),
+            'action'     => $aktivitas,
             'ip_address' => $this->input->ip_address()
         );
-        $this->db->insert('tb_audit_trail', $data);
+
+        // Optional columns (schema may differ between installs)
+        if ($this->db->field_exists('aktivitas', $this->table)) {
+            $data['aktivitas'] = $aktivitas;
+        }
+        if ($this->db->field_exists('keterangan', $this->table)) {
+            $data['keterangan'] = $keterangan;
+        }
+        if ($this->db->field_exists('tanggal', $this->table)) {
+            $data['tanggal'] = date('Y-m-d H:i:s');
+        }
+
+        $this->db->insert($this->table, $data);
     }
 }
+
