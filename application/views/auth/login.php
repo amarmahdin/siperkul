@@ -127,6 +127,12 @@
                     Login <i class="fas fa-sign-in-alt ms-1"></i>
                 </button>
             </form>
+
+            <div class="text-center my-3 text-muted">atau</div>
+
+            <a href="<?= base_url('auth/microsoft_login') ?>" class="btn btn-outline-primary w-100">
+                <i class="fab fa-microsoft me-1"></i> Login dengan Microsoft
+            </a>
         </div>
     </div>
 </div>
@@ -138,6 +144,14 @@
 
 <script>
 $(document).ready(function() {
+    <?php if ($this->session->flashdata('error')): ?>
+    Swal.fire({
+        icon: 'error',
+        title: 'Gagal!',
+        text: <?= json_encode($this->session->flashdata('error')) ?>
+    });
+    <?php endif; ?>
+
     $('#formLogin').on('submit', function(e) {
         e.preventDefault();
         let btn = $('#btnLogin');

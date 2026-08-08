@@ -159,6 +159,7 @@ CREATE TABLE `tb_users` (
   `username` varchar(50) NOT NULL,
   `password` varchar(255) NOT NULL,
   `nama_lengkap` varchar(100) NOT NULL,
+  `email` varchar(150) DEFAULT NULL,
   `role` enum('Administrator','BAAK','Operator Fakultas','Operator Prodi','Viewer') NOT NULL,
   `id_fakultas` int(11) DEFAULT NULL,
   `id_prodi` int(11) DEFAULT NULL,
@@ -249,6 +250,7 @@ ALTER TABLE `tb_tahun_akademik`
 ALTER TABLE `tb_users`
   ADD PRIMARY KEY (`id_user`),
   ADD UNIQUE KEY `username` (`username`),
+  ADD UNIQUE KEY `email` (`email`),
   ADD KEY `id_fakultas` (`id_fakultas`),
   ADD KEY `id_prodi` (`id_prodi`);
 
