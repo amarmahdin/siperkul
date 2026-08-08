@@ -6,21 +6,29 @@ defined('BASEPATH') OR exit('No direct script access allowed');
 | Microsoft Entra ID SSO
 |--------------------------------------------------------------------------
 |
-| Redirect URI (Web) di Azure App Registration:
-|   http://localhost/siperkul/auth/microsoft_callback
+| Semua kredensial diambil dari file .env di root project.
+| Salin .env.example menjadi .env lalu isi nilainya.
 |
-| Ganti microsoft_client_secret dengan Value secret dari Azure
-| (bukan Secret ID). Jangan commit secret asli ke git publik.
+| Local redirect contoh:
+|   MICROSOFT_REDIRECT_URI=http://localhost/siperkul/auth/microsoft_callback
+| Production redirect contoh:
+|   MICROSOFT_REDIRECT_URI=https://domain-anda.ac.id/auth/microsoft_callback
+|
+| Jangan commit file .env ke git.
 |
 */
-$config['microsoft_enabled']       = TRUE;
-$config['microsoft_tenant_id']     = '7b388d18-1900-418c-a5d3-e28d7a9a38e6';
-$config['microsoft_client_id']     = '2e9a99a6-cf23-48ed-9a7a-ecc5ca63e89f';
-$config['microsoft_client_secret'] = getenv('MICROSOFT_CLIENT_SECRET') ?: 'YOUR_CLIENT_SECRET';
-$config['microsoft_redirect_uri']  = 'http://localhost/siperkul/auth/microsoft_callback';
-$config['microsoft_scopes']        = 'openid profile email User.Read';
+$config['microsoft_enabled'] = filter_var(
+	getenv('MICROSOFT_ENABLED') !== FALSE ? getenv('MICROSOFT_ENABLED') : 'true',
+	FILTER_VALIDATE_BOOLEAN
+);
+
+$config['microsoft_tenant_id']     = getenv('MICROSOFT_TENANT_ID') ?: '';
+$config['microsoft_client_id']     = getenv('MICROSOFT_CLIENT_ID') ?: '';
+$config['microsoft_client_secret'] = getenv('MICROSOFT_CLIENT_SECRET') ?: '';
+$config['microsoft_redirect_uri']  = getenv('MICROSOFT_REDIRECT_URI') ?: 'http://localhost/siperkul/auth/microsoft_callback';
+$config['microsoft_scopes']        = getenv('MICROSOFT_SCOPES') ?: 'openid profile email User.Read';
+$config['microsoft_allowed_domain']= getenv('MICROSOFT_ALLOWED_DOMAIN') ?: 'itpln.ac.id';
+
 $config['microsoft_authorize_url'] = 'https://login.microsoftonline.com/{tenant}/oauth2/v2.0/authorize';
 $config['microsoft_token_url']     = 'https://login.microsoftonline.com/{tenant}/oauth2/v2.0/token';
 $config['microsoft_graph_me_url']  = 'https://graph.microsoft.com/v1.0/me';
-// Hanya email domain ini + yang sudah terdaftar di tb_users yang boleh SSO
-$config['microsoft_allowed_domain'] = 'itpln.ac.id';

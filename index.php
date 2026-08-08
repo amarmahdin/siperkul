@@ -307,6 +307,17 @@ switch (ENVIRONMENT)
 
 /*
  * --------------------------------------------------------------------
+ * LOAD .env (local / production secrets)
+ * --------------------------------------------------------------------
+ */
+	if (is_file(APPPATH.'helpers/env_helper.php'))
+	{
+		require_once APPPATH.'helpers/env_helper.php';
+		load_env_file(FCPATH.'.env');
+	}
+
+/*
+ * --------------------------------------------------------------------
  * LOAD THE BOOTSTRAP FILE
  * --------------------------------------------------------------------
  *

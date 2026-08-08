@@ -1,5 +1,10 @@
 .DS_Store
 
+# Environment secrets (local & production)
+.env
+.env.local
+.env.*.local
+
 application/cache/*
 !application/cache/index.html
 

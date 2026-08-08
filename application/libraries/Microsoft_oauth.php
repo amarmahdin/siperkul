@@ -18,11 +18,19 @@ class Microsoft_oauth {
 
     public function is_configured()
     {
-        $client_id = (string) $this->cfg('microsoft_client_id');
-        $secret = (string) $this->cfg('microsoft_client_secret');
+        if (!$this->cfg('microsoft_enabled')) {
+            return FALSE;
+        }
+
+        $client_id = trim((string) $this->cfg('microsoft_client_id'));
+        $secret = trim((string) $this->cfg('microsoft_client_secret'));
+        $tenant = trim((string) $this->cfg('microsoft_tenant_id'));
+
         return $client_id !== ''
             && $secret !== ''
+            && $tenant !== ''
             && $secret !== 'YOUR_CLIENT_SECRET'
+            && strpos($client_id, 'your-') === false
             && strpos($client_id, 'YOUR_') === false;
     }
 

@@ -49,7 +49,7 @@ class Auth extends CI_Controller {
         $this->load->library('microsoft_oauth');
 
         if (!$this->microsoft_oauth->is_configured()) {
-            $this->session->set_flashdata('error', 'Microsoft SSO belum dikonfigurasi. Isi client_secret di application/config/microsoft.php');
+            $this->session->set_flashdata('error', 'Microsoft SSO belum dikonfigurasi. Isi kredensial di file .env (lihat .env.example).');
             redirect('auth');
             return;
         }
