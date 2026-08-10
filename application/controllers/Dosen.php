@@ -15,9 +15,8 @@ class Dosen extends CI_Controller {
     }
 
     public function index() {
-        $this->_sync_sevima();
         $data['title'] = 'Data Dosen';
-        $data['sync_message'] = $this->session->flashdata('sync_dosen');
+        $data['sync_message'] = $this->_sync_sevima();
         
         $this->load->view('templates/header', $data);
         $this->load->view('templates/sidebar', $data);
@@ -102,7 +101,7 @@ class Dosen extends CI_Controller {
     private function _sync_sevima() {
         // Key baru agar sync penuh jalan sekali setelah update pagination
         if ($this->session->userdata('last_sync_dosen_all') && (time() - $this->session->userdata('last_sync_dosen_all') < 3600)) {
-            return;
+            return null;
         }
 
         @set_time_limit(300);
@@ -160,16 +159,20 @@ class Dosen extends CI_Controller {
 
         if ($synced_any) {
             $this->session->set_userdata('last_sync_dosen_all', time());
-            $this->session->set_flashdata('sync_dosen', array(
+            return array(
                 'type' => 'success',
                 'text' => 'Sinkronisasi Sevima berhasil (' . $total_synced . ' baris diproses dari ' . $page . ' halaman).',
-            ));
-        } elseif ($api_error) {
-            $this->session->set_flashdata('sync_dosen', array(
+            );
+        }
+
+        if ($api_error) {
+            return array(
                 'type' => 'danger',
                 'text' => 'Gagal sync API Sevima: ' . $api_error,
-            ));
+            );
         }
+
+        return null;
     }
 
     private function _sevima_get($url) {
