@@ -156,22 +156,24 @@ INSERT INTO `tb_tahun_akademik` (`id_ta`, `tahun_akademik`, `semester`, `is_acti
 --
 CREATE TABLE `tb_users` (
   `id_user` int(11) NOT NULL,
-  `username` varchar(50) NOT NULL,
-  `password` varchar(255) NOT NULL,
+  `username` varchar(50) DEFAULT NULL,
+  `password` varchar(255) DEFAULT NULL,
   `nama_lengkap` varchar(100) NOT NULL,
   `email` varchar(150) DEFAULT NULL,
   `role` enum('Administrator','BAAK','Operator Fakultas','Operator Prodi','Viewer') NOT NULL,
+  `status` enum('Menunggu','Aktif','Ditolak') NOT NULL DEFAULT 'Aktif',
   `id_fakultas` int(11) DEFAULT NULL,
   `id_prodi` int(11) DEFAULT NULL,
+  `id_dosen` int(11) DEFAULT NULL,
   `created_at` datetime NOT NULL DEFAULT current_timestamp()
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 --
 -- Dumping data for table `tb_users`
 --
-INSERT INTO `tb_users` (`id_user`, `username`, `password`, `nama_lengkap`, `role`, `id_fakultas`, `id_prodi`) VALUES
-(1, 'admin', '$2y$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi', 'Super Administrator', 'Administrator', NULL, NULL), -- password: password
-(2, 'baak', '$2y$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi', 'Staff BAAK', 'BAAK', NULL, NULL);
+INSERT INTO `tb_users` (`id_user`, `username`, `password`, `nama_lengkap`, `email`, `role`, `status`, `id_fakultas`, `id_prodi`, `id_dosen`) VALUES
+(1, 'admin', '$2y$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi', 'Super Administrator', NULL, 'Administrator', 'Aktif', NULL, NULL, NULL), -- password: password
+(2, 'baak', '$2y$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi', 'Staff BAAK', NULL, 'BAAK', 'Aktif', NULL, NULL, NULL);
 
 -- --------------------------------------------------------
 
@@ -252,7 +254,8 @@ ALTER TABLE `tb_users`
   ADD UNIQUE KEY `username` (`username`),
   ADD UNIQUE KEY `email` (`email`),
   ADD KEY `id_fakultas` (`id_fakultas`),
-  ADD KEY `id_prodi` (`id_prodi`);
+  ADD KEY `id_prodi` (`id_prodi`),
+  ADD KEY `id_dosen` (`id_dosen`);
 
 ALTER TABLE `tb_jadwal`
   ADD PRIMARY KEY (`id_jadwal`),
@@ -297,7 +300,8 @@ ALTER TABLE `tb_ruangan`
 
 ALTER TABLE `tb_users`
   ADD CONSTRAINT `tb_users_ibfk_1` FOREIGN KEY (`id_fakultas`) REFERENCES `tb_fakultas` (`id_fakultas`) ON DELETE SET NULL ON UPDATE CASCADE,
-  ADD CONSTRAINT `tb_users_ibfk_2` FOREIGN KEY (`id_prodi`) REFERENCES `tb_prodi` (`id_prodi`) ON DELETE SET NULL ON UPDATE CASCADE;
+  ADD CONSTRAINT `tb_users_ibfk_2` FOREIGN KEY (`id_prodi`) REFERENCES `tb_prodi` (`id_prodi`) ON DELETE SET NULL ON UPDATE CASCADE,
+  ADD CONSTRAINT `tb_users_ibfk_dosen` FOREIGN KEY (`id_dosen`) REFERENCES `tb_dosen` (`id_dosen`) ON DELETE SET NULL ON UPDATE CASCADE;
 
 ALTER TABLE `tb_jadwal`
   ADD CONSTRAINT `tb_jadwal_ibfk_1` FOREIGN KEY (`id_prodi`) REFERENCES `tb_prodi` (`id_prodi`) ON DELETE CASCADE ON UPDATE CASCADE,

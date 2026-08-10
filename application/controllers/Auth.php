@@ -27,22 +27,38 @@ class Auth extends CI_Controller {
 
         $user = $this->Auth_model->get_user($username);
 
-        if ($user) {
-            if (password_verify($password, $user->password)) {
-                $this->_set_user_session($user);
-                $this->Audit_model->log_activity('Login', 'User login ke sistem');
-
-                echo json_encode([
-                    'status' => 'success',
-                    'message' => 'Login Berhasil!',
-                    'redirect' => base_url($this->_home_by_role($user->role))
-                ]);
-            } else {
-                echo json_encode(['status' => 'error', 'message' => 'Password salah!']);
-            }
-        } else {
+        if (!$user) {
             echo json_encode(['status' => 'error', 'message' => 'Username tidak ditemukan!']);
+            return;
         }
+
+        // Viewer SSO biasanya tanpa password lokal
+        if (empty($user->password)) {
+            echo json_encode(['status' => 'error', 'message' => 'Akun ini hanya bisa login menggunakan Microsoft SSO.']);
+            return;
+        }
+
+        if (!password_verify($password, $user->password)) {
+            echo json_encode(['status' => 'error', 'message' => 'Password salah!']);
+            return;
+        }
+
+        if ($user->role === 'Viewer') {
+            $status_msg = $this->_viewer_status_message($user);
+            if ($status_msg !== null) {
+                echo json_encode(['status' => 'error', 'message' => $status_msg]);
+                return;
+            }
+        }
+
+        $this->_set_user_session($user);
+        $this->Audit_model->log_activity('Login', 'User login ke sistem');
+
+        echo json_encode([
+            'status' => 'success',
+            'message' => 'Login Berhasil!',
+            'redirect' => base_url($this->_home_by_role($user->role))
+        ]);
     }
 
     public function microsoft_login() {
@@ -102,6 +118,7 @@ class Auth extends CI_Controller {
             $email = $profile['userPrincipalName'];
         }
         $email = strtolower(trim($email));
+        $display_name = !empty($profile['displayName']) ? $profile['displayName'] : $email;
 
         if ($email === '') {
             $this->session->set_flashdata('error', 'Email Microsoft tidak ditemukan pada akun Anda.');
@@ -122,47 +139,71 @@ class Auth extends CI_Controller {
             return;
         }
 
-        // Email utama ada di tb_dosen; tb_users hanya akun/role (username = kode_dosen)
-        $dosen = $this->Auth_model->get_dosen_by_email($email);
-        if (!$dosen) {
+        // Khusus Viewer: daftar otomatis status Menunggu, atau login jika Aktif
+        $user = $this->Auth_model->get_user_by_email($email);
+        if (!$user) {
+            $user = $this->Auth_model->create_pending_viewer($email, $display_name);
             $this->session->set_flashdata(
                 'error',
-                'Email ' . $email . ' belum terdaftar di Data Dosen. Hubungi Admin/BAAK.'
+                'Pendaftaran SSO berhasil. Akun Anda menunggu verifikasi Admin/BAAK sebelum dapat masuk.'
             );
             redirect('auth');
             return;
         }
 
-        $user = $this->Auth_model->get_user($dosen->kode_dosen);
-        if (!$user) {
-            $this->session->set_flashdata(
-                'error',
-                'Dosen ' . $dosen->kode_dosen . ' belum punya akun login (username harus sama dengan kode dosen).'
-            );
+        // Akun non-Viewer (admin dll) yang punya email: izinkan SSO jika Aktif
+        if ($user->role !== 'Viewer') {
+            if (isset($user->status) && $user->status !== 'Aktif') {
+                $this->session->set_flashdata('error', 'Akun Anda tidak aktif.');
+                redirect('auth');
+                return;
+            }
+            $this->_set_user_session($user);
+            $this->Audit_model->log_activity('Login', 'User login via Microsoft SSO');
+            redirect($this->_home_by_role($user->role));
+            return;
+        }
+
+        $status_msg = $this->_viewer_status_message($user);
+        if ($status_msg !== null) {
+            $this->session->set_flashdata('error', $status_msg);
             redirect('auth');
             return;
         }
 
         $this->_set_user_session($user);
         $this->Audit_model->log_activity('Login', 'User login via Microsoft SSO');
-
         redirect($this->_home_by_role($user->role));
     }
 
     public function logout() {
-        // Audit may be skipped if user already deleted; always clear session
         $this->Audit_model->log_activity('Logout', 'User logout dari sistem');
         $this->session->sess_destroy();
         redirect('auth');
     }
 
+    private function _viewer_status_message($user) {
+        $status = isset($user->status) ? $user->status : 'Aktif';
+        if ($status === 'Menunggu') {
+            return 'Akun Viewer Anda masih menunggu verifikasi Admin/BAAK.';
+        }
+        if ($status === 'Ditolak') {
+            return 'Akun Viewer Anda ditolak. Hubungi Admin/BAAK.';
+        }
+        if ($status !== 'Aktif') {
+            return 'Akun Viewer Anda tidak aktif.';
+        }
+        return null;
+    }
+
     private function _set_user_session($user) {
         $id_dosen = null;
         $nama_dosen = null;
-        if ($user->role === 'Viewer') {
-            $dosen = $this->Auth_model->get_dosen_for_user($user);
+
+        if ($user->role === 'Viewer' && !empty($user->id_dosen)) {
+            $id_dosen = $user->id_dosen;
+            $dosen = $this->Auth_model->get_dosen_by_id($user->id_dosen);
             if ($dosen) {
-                $id_dosen = $dosen->id_dosen;
                 $nama_dosen = $dosen->nama;
             }
         }
@@ -171,7 +212,9 @@ class Auth extends CI_Controller {
             'id_user'      => $user->id_user,
             'username'     => $user->username,
             'nama_lengkap' => $user->nama_lengkap,
+            'email'        => isset($user->email) ? $user->email : null,
             'role'         => $user->role,
+            'status'       => isset($user->status) ? $user->status : 'Aktif',
             'id_fakultas'  => $user->id_fakultas,
             'id_prodi'     => $user->id_prodi,
             'id_dosen'     => $id_dosen,

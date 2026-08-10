@@ -8,7 +8,7 @@
                         <?php if (!empty($dosen_linked)): ?>
                             <p class="text-muted mb-0 mt-1">Menampilkan jadwal mengajar: <strong><?= htmlspecialchars($nama_dosen) ?></strong></p>
                         <?php else: ?>
-                            <p class="text-danger mb-0 mt-1">Akun belum terhubung ke data dosen. Pastikan email/kode dosen sama dengan data di Master Dosen.</p>
+                            <p class="text-danger mb-0 mt-1">Akun belum dihubungkan ke data dosen. Hubungi Admin/BAAK untuk verifikasi ulang.</p>
                         <?php endif; ?>
                     <?php endif; ?>
                 </div>

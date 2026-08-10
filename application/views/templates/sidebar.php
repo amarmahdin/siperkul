@@ -74,6 +74,28 @@
                         </a>
                     </li>
 
+                    <?php if(in_array($this->session->userdata('role'), ['Administrator', 'BAAK'])): ?>
+                    <li class="nav-header">VERIFIKASI</li>
+                    <li class="nav-item">
+                        <a href="<?= base_url('verifikasi') ?>" class="nav-link <?= ($this->uri->segment(1) == 'verifikasi') ? 'active' : '' ?>">
+                            <i class="nav-icon fas fa-user-check"></i>
+                            <p>
+                                Verifikasi Viewer
+                                <?php
+                                $CI =& get_instance();
+                                if (!isset($CI->Verifikasi_model)) {
+                                    $CI->load->model('Verifikasi_model');
+                                }
+                                $jml_v = $CI->Verifikasi_model->count_pending();
+                                if ($jml_v > 0):
+                                ?>
+                                <span class="badge badge-warning right"><?= $jml_v ?></span>
+                                <?php endif; ?>
+                            </p>
+                        </a>
+                    </li>
+                    <?php endif; ?>
+
                     <?php if(in_array($this->session->userdata('role'), ['Administrator'])): ?>
                     <li class="nav-header">PENGATURAN</li>
                     <li class="nav-item">
