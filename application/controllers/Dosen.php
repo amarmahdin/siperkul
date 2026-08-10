@@ -17,6 +17,7 @@ class Dosen extends CI_Controller {
     public function index() {
         $this->_sync_sevima();
         $data['title'] = 'Data Dosen';
+        $data['sync_message'] = $this->session->flashdata('sync_dosen');
         
         $this->load->view('templates/header', $data);
         $this->load->view('templates/sidebar', $data);
@@ -110,6 +111,8 @@ class Dosen extends CI_Controller {
         $per_page = 100;
         $last_page = null;
         $synced_any = false;
+        $total_synced = 0;
+        $api_error = null;
 
         while ($page <= 500) {
             $url = 'https://api.sevimaplatform.com/siakadcloud/v1/dosen?' . http_build_query(array(
@@ -117,11 +120,13 @@ class Dosen extends CI_Controller {
                 'per_page' => $per_page,
             ));
 
-            $payload = $this->_sevima_get($url);
-            if ($payload === null) {
+            $result = $this->_sevima_get($url);
+            if (!$result['ok']) {
+                $api_error = $result['error'];
                 break;
             }
 
+            $payload = $result['data'];
             $items = isset($payload['data']) && is_array($payload['data']) ? $payload['data'] : array();
             if (empty($items)) {
                 break;
@@ -129,6 +134,7 @@ class Dosen extends CI_Controller {
 
             foreach ($items as $item) {
                 $this->_upsert_dosen_from_sevima($item);
+                $total_synced++;
             }
             $synced_any = true;
 
@@ -154,6 +160,15 @@ class Dosen extends CI_Controller {
 
         if ($synced_any) {
             $this->session->set_userdata('last_sync_dosen_all', time());
+            $this->session->set_flashdata('sync_dosen', array(
+                'type' => 'success',
+                'text' => 'Sinkronisasi Sevima berhasil (' . $total_synced . ' baris diproses dari ' . $page . ' halaman).',
+            ));
+        } elseif ($api_error) {
+            $this->session->set_flashdata('sync_dosen', array(
+                'type' => 'danger',
+                'text' => 'Gagal sync API Sevima: ' . $api_error,
+            ));
         }
     }
 
@@ -162,6 +177,9 @@ class Dosen extends CI_Controller {
         curl_setopt($ch, CURLOPT_URL, $url);
         curl_setopt($ch, CURLOPT_RETURNTRANSFER, 1);
         curl_setopt($ch, CURLOPT_TIMEOUT, 60);
+        // XAMPP sering belum punya CA bundle lengkap
+        curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, false);
+        curl_setopt($ch, CURLOPT_SSL_VERIFYHOST, false);
         curl_setopt($ch, CURLOPT_HTTPHEADER, array(
             'Content-Type: application/json',
             'Accept: application/json',
@@ -171,14 +189,30 @@ class Dosen extends CI_Controller {
 
         $response = curl_exec($ch);
         $httpcode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+        $curl_err = curl_error($ch);
         curl_close($ch);
 
-        if ($httpcode != 200 || !$response) {
-            return null;
+        if ($curl_err) {
+            return array('ok' => false, 'error' => $curl_err, 'data' => null);
         }
 
         $decoded = json_decode($response, true);
-        return is_array($decoded) ? $decoded : null;
+
+        if ($httpcode != 200) {
+            $detail = 'HTTP ' . $httpcode;
+            if (isset($decoded['errors']['detail'])) {
+                $detail = $decoded['errors']['detail'];
+            } elseif (isset($decoded['message'])) {
+                $detail = $decoded['message'];
+            }
+            return array('ok' => false, 'error' => $detail, 'data' => null);
+        }
+
+        if (!is_array($decoded)) {
+            return array('ok' => false, 'error' => 'Respons API tidak valid', 'data' => null);
+        }
+
+        return array('ok' => true, 'error' => null, 'data' => $decoded);
     }
 
     private function _upsert_dosen_from_sevima($item) {
