@@ -94,94 +94,162 @@ class Dosen extends CI_Controller {
         echo json_encode(['status' => 'success', 'message' => 'Data berhasil dihapus']);
     }
 
+    /**
+     * Ambil semua halaman dari API Sevima, simpan ke tb_dosen.
+     * Tampilan tetap pakai pagination DataTables (server-side).
+     */
     private function _sync_sevima() {
-        if ($this->session->userdata('last_sync_dosen') && (time() - $this->session->userdata('last_sync_dosen') < 3600)) {
+        // Key baru agar sync penuh jalan sekali setelah update pagination
+        if ($this->session->userdata('last_sync_dosen_all') && (time() - $this->session->userdata('last_sync_dosen_all') < 3600)) {
             return;
         }
 
-        $url = "https://api.sevimaplatform.com/siakadcloud/v1/dosen";
+        @set_time_limit(300);
+
+        $page = 1;
+        $per_page = 100;
+        $last_page = null;
+        $synced_any = false;
+
+        while ($page <= 500) {
+            $url = 'https://api.sevimaplatform.com/siakadcloud/v1/dosen?' . http_build_query(array(
+                'page' => $page,
+                'per_page' => $per_page,
+            ));
+
+            $payload = $this->_sevima_get($url);
+            if ($payload === null) {
+                break;
+            }
+
+            $items = isset($payload['data']) && is_array($payload['data']) ? $payload['data'] : array();
+            if (empty($items)) {
+                break;
+            }
+
+            foreach ($items as $item) {
+                $this->_upsert_dosen_from_sevima($item);
+            }
+            $synced_any = true;
+
+            $meta = isset($payload['meta']) && is_array($payload['meta']) ? $payload['meta'] : array();
+            if (isset($meta['last_page'])) {
+                $last_page = (int) $meta['last_page'];
+            } elseif (isset($meta['page']['lastPage'])) {
+                $last_page = (int) $meta['page']['lastPage'];
+            }
+
+            if ($last_page !== null && $page >= $last_page) {
+                break;
+            }
+            if (isset($payload['links']['next']) && empty($payload['links']['next'])) {
+                break;
+            }
+            if ($last_page === null && count($items) < $per_page) {
+                break;
+            }
+
+            $page++;
+        }
+
+        if ($synced_any) {
+            $this->session->set_userdata('last_sync_dosen_all', time());
+        }
+    }
+
+    private function _sevima_get($url) {
         $ch = curl_init();
         curl_setopt($ch, CURLOPT_URL, $url);
         curl_setopt($ch, CURLOPT_RETURNTRANSFER, 1);
+        curl_setopt($ch, CURLOPT_TIMEOUT, 60);
         curl_setopt($ch, CURLOPT_HTTPHEADER, array(
             'Content-Type: application/json',
             'Accept: application/json',
             'X-App-Key: 326E047C0915C6F86D875AB85EB48D26',
             'X-Secret-Key: CDBA495093339309249FE2A7C9381DC6C666318D4A21B294BA5DBDB1A9651BF8'
         ));
-        
+
         $response = curl_exec($ch);
         $httpcode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
         curl_close($ch);
 
-        if ($httpcode == 200 && $response) {
-            $data_sevima = json_decode($response, true);
-            if (isset($data_sevima['data']) && is_array($data_sevima['data'])) {
-                foreach ($data_sevima['data'] as $item) {
-                    $attr = $item['attributes'];
-                    $nidn = isset($attr['nidn']) ? trim($attr['nidn']) : '';
-                    $nama_asli = isset($attr['nama']) ? trim($attr['nama']) : '';
-                    $gelar_depan = isset($attr['gelar_depan']) ? trim($attr['gelar_depan']) : '';
-                    $gelar_belakang = isset($attr['gelar_belakang']) ? trim($attr['gelar_belakang']) : '';
-                    $email = isset($attr['email']) ? trim($attr['email']) : '';
-                    $no_hp = isset($attr['nomor_hp']) ? trim($attr['nomor_hp']) : '';
-                    
-                    if (empty($nama_asli)) continue;
+        if ($httpcode != 200 || !$response) {
+            return null;
+        }
 
-                    $nama = $nama_asli;
-                    if (!empty($gelar_depan)) {
-                        $nama = $gelar_depan . ' ' . $nama;
-                    }
-                    if (!empty($gelar_belakang)) {
-                        $nama = $nama . ', ' . $gelar_belakang;
-                    }
-                    $nama = trim($nama);
+        $decoded = json_decode($response, true);
+        return is_array($decoded) ? $decoded : null;
+    }
 
-                    $words = explode(" ", preg_replace("/[^a-zA-Z\s]/", "", $nama_asli));
-                    $initials = "";
-                    foreach ($words as $w) {
-                        if (!empty($w)) {
-                            $initials .= strtoupper($w[0]);
-                        }
-                    }
-                    if (empty($initials)) $initials = "DSN";
-                    
-                    $kode_dosen = substr($initials, 0, 5); 
-                    
-                    $this->db->group_start();
-                    if (!empty($nidn)) {
-                        $this->db->where('nidn', $nidn);
-                        $this->db->or_where('nama', $nama);
-                    } else {
-                        $this->db->where('nama', $nama);
-                    }
-                    $this->db->group_end();
-                    
-                    $exist = $this->db->get('tb_dosen')->row();
-                    
-                    $data_db = array(
-                        'nidn' => $nidn,
-                        'nama' => $nama,
-                        'email' => $email,
-                        'no_hp' => $no_hp
-                    );
+    private function _upsert_dosen_from_sevima($item) {
+        if (!isset($item['attributes']) || !is_array($item['attributes'])) {
+            return;
+        }
 
-                    if ($exist) {
-                        $this->Dosen_model->update(array('id_dosen' => $exist->id_dosen), $data_db);
-                    } else {
-                        $base_kode = $kode_dosen;
-                        $counter = 1;
-                        while ($this->db->get_where('tb_dosen', ['kode_dosen' => $kode_dosen])->num_rows() > 0) {
-                            $kode_dosen = $base_kode . $counter;
-                            $counter++;
-                        }
-                        
-                        $data_db['kode_dosen'] = $kode_dosen;
-                        $this->Dosen_model->save($data_db);
-                    }
-                }
-                $this->session->set_userdata('last_sync_dosen', time());
+        $attr = $item['attributes'];
+        $nidn = isset($attr['nidn']) ? trim($attr['nidn']) : '';
+        $nama_asli = isset($attr['nama']) ? trim($attr['nama']) : '';
+        $gelar_depan = isset($attr['gelar_depan']) ? trim($attr['gelar_depan']) : '';
+        $gelar_belakang = isset($attr['gelar_belakang']) ? trim($attr['gelar_belakang']) : '';
+        $email = isset($attr['email']) ? trim($attr['email']) : '';
+        $no_hp = isset($attr['nomor_hp']) ? trim($attr['nomor_hp']) : '';
+
+        if ($nama_asli === '') {
+            return;
+        }
+
+        $nama = $nama_asli;
+        if ($gelar_depan !== '') {
+            $nama = $gelar_depan . ' ' . $nama;
+        }
+        if ($gelar_belakang !== '') {
+            $nama = $nama . ', ' . $gelar_belakang;
+        }
+        $nama = trim($nama);
+
+        $words = explode(' ', preg_replace('/[^a-zA-Z\s]/', '', $nama_asli));
+        $initials = '';
+        foreach ($words as $w) {
+            if ($w !== '') {
+                $initials .= strtoupper($w[0]);
             }
         }
+        if ($initials === '') {
+            $initials = 'DSN';
+        }
+
+        $kode_dosen = substr($initials, 0, 5);
+
+        $this->db->group_start();
+        if ($nidn !== '') {
+            $this->db->where('nidn', $nidn);
+            $this->db->or_where('nama', $nama);
+        } else {
+            $this->db->where('nama', $nama);
+        }
+        $this->db->group_end();
+        $exist = $this->db->get('tb_dosen')->row();
+
+        $data_db = array(
+            'nidn' => $nidn,
+            'nama' => $nama,
+            'email' => $email,
+            'no_hp' => $no_hp,
+        );
+
+        if ($exist) {
+            $this->Dosen_model->update(array('id_dosen' => $exist->id_dosen), $data_db);
+            return;
+        }
+
+        $base_kode = $kode_dosen;
+        $counter = 1;
+        while ($this->db->get_where('tb_dosen', array('kode_dosen' => $kode_dosen))->num_rows() > 0) {
+            $kode_dosen = $base_kode . $counter;
+            $counter++;
+        }
+
+        $data_db['kode_dosen'] = $kode_dosen;
+        $this->Dosen_model->save($data_db);
     }
 }
