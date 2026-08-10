@@ -33,5 +33,11 @@
 <script>
     var base_url = '<?= base_url() ?>';
 </script>
+<?php if (!empty($page_js)): ?>
+<script>
+<?= $page_js ?>
+</script>
+<?php endif; ?>
 </body>
 </html>
+

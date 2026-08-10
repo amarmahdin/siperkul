@@ -15,6 +15,12 @@
 
     <section class="content">
         <div class="container-fluid fade-in">
+            <div class="alert alert-info">
+                <strong>Kenapa perlu pilih dosen?</strong>
+                Saat Acc, akun Viewer harus dihubungkan ke data dosen di master,
+                agar setelah login hanya melihat jadwal mengajar dosen tersebut.
+            </div>
+
             <div class="card card-warning card-outline">
                 <div class="card-header">
                     <h3 class="card-title">Antrian Menunggu Verifikasi</h3>
@@ -27,7 +33,7 @@
                                 <th>Nama</th>
                                 <th>Email SSO</th>
                                 <th>Tanggal Daftar</th>
-                                <th>Hubungkan ke Dosen</th>
+                                <th>Pilih Dosen (untuk Acc)</th>
                                 <th width="180">Aksi</th>
                             </tr>
                         </thead>
@@ -38,6 +44,16 @@
                                 </tr>
                             <?php else: ?>
                                 <?php $no = 1; foreach ($pending as $p): ?>
+                                    <?php
+                                    $preselect = '';
+                                    $email_sso = strtolower(trim($p->email));
+                                    foreach ($dosen as $d) {
+                                        if (!empty($d->email) && strtolower(trim($d->email)) === $email_sso) {
+                                            $preselect = $d->id_dosen;
+                                            break;
+                                        }
+                                    }
+                                    ?>
                                     <tr data-id="<?= $p->id_user ?>">
                                         <td><?= $no++ ?></td>
                                         <td><?= htmlspecialchars($p->nama_lengkap) ?></td>
@@ -47,7 +63,7 @@
                                             <select class="form-control form-control-sm select-dosen" style="width:100%;">
                                                 <option value="">-- Pilih Dosen --</option>
                                                 <?php foreach ($dosen as $d): ?>
-                                                    <option value="<?= $d->id_dosen ?>">
+                                                    <option value="<?= $d->id_dosen ?>" <?= ((string)$preselect === (string)$d->id_dosen) ? 'selected' : '' ?>>
                                                         <?= htmlspecialchars($d->kode_dosen . ' - ' . $d->nama) ?>
                                                     </option>
                                                 <?php endforeach; ?>
@@ -113,72 +129,3 @@
         </div>
     </section>
 </div>
-
-<script>
-$(function () {
-    $('.select-dosen').select2({ width: '100%' });
-
-    $(document).on('click', '.btn-approve', function () {
-        var row = $(this).closest('tr');
-        var id_user = row.data('id');
-        var id_dosen = row.find('.select-dosen').val();
-
-        if (!id_dosen) {
-            Swal.fire('Perhatian', 'Pilih dosen yang akan dihubungkan terlebih dahulu.', 'warning');
-            return;
-        }
-
-        Swal.fire({
-            title: 'Aktifkan akun ini?',
-            text: 'Viewer akan terhubung ke dosen terpilih dan bisa melihat jadwalnya.',
-            icon: 'question',
-            showCancelButton: true,
-            confirmButtonText: 'Ya, Acc'
-        }).then(function (result) {
-            if (!result.isConfirmed) return;
-
-            $.post('<?= base_url('verifikasi/approve') ?>', {
-                id_user: id_user,
-                id_dosen: id_dosen
-            }, function (res) {
-                if (res.status === 'success') {
-                    Swal.fire('Berhasil', res.message, 'success').then(function () {
-                        location.reload();
-                    });
-                } else {
-                    Swal.fire('Gagal', res.message, 'error');
-                }
-            }, 'json').fail(function () {
-                Swal.fire('Error', 'Terjadi kesalahan server.', 'error');
-            });
-        });
-    });
-
-    $(document).on('click', '.btn-reject', function () {
-        var id_user = $(this).closest('tr').data('id');
-
-        Swal.fire({
-            title: 'Tolak akun ini?',
-            icon: 'warning',
-            showCancelButton: true,
-            confirmButtonText: 'Ya, Tolak'
-        }).then(function (result) {
-            if (!result.isConfirmed) return;
-
-            $.post('<?= base_url('verifikasi/reject') ?>', {
-                id_user: id_user
-            }, function (res) {
-                if (res.status === 'success') {
-                    Swal.fire('Berhasil', res.message, 'success').then(function () {
-                        location.reload();
-                    });
-                } else {
-                    Swal.fire('Gagal', res.message, 'error');
-                }
-            }, 'json').fail(function () {
-                Swal.fire('Error', 'Terjadi kesalahan server.', 'error');
-            });
-        });
-    });
-});
-</script>
