@@ -144,7 +144,14 @@
 
 <script>
 $(document).ready(function() {
-    <?php if ($this->session->flashdata('error')): ?>
+    <?php if ($this->session->flashdata('info')): ?>
+    Swal.fire({
+        icon: 'info',
+        title: 'Menunggu Verifikasi',
+        text: <?= json_encode($this->session->flashdata('info')) ?>,
+        confirmButtonText: 'Mengerti'
+    });
+    <?php elseif ($this->session->flashdata('error')): ?>
     Swal.fire({
         icon: 'error',
         title: 'Gagal!',
@@ -175,6 +182,14 @@ $(document).ready(function() {
                     }).then(() => {
                         window.location.href = response.redirect || '<?= base_url("dashboard") ?>';
                     });
+                } else if (response.status === 'info') {
+                    Swal.fire({
+                        icon: 'info',
+                        title: 'Menunggu Verifikasi',
+                        text: response.message,
+                        confirmButtonText: 'Mengerti'
+                    });
+                    btn.html(originalText).prop('disabled', false);
                 } else {
                     Swal.fire({
                         icon: 'error',

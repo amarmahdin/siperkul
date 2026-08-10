@@ -44,9 +44,12 @@ class Auth extends CI_Controller {
         }
 
         if ($user->role === 'Viewer') {
-            $status_msg = $this->_viewer_status_message($user);
-            if ($status_msg !== null) {
-                echo json_encode(['status' => 'error', 'message' => $status_msg]);
+            $status_flash = $this->_viewer_status_flash($user);
+            if ($status_flash !== null) {
+                echo json_encode([
+                    'status' => $status_flash['type'] === 'info' ? 'info' : 'error',
+                    'message' => $status_flash['message']
+                ]);
                 return;
             }
         }
@@ -144,7 +147,7 @@ class Auth extends CI_Controller {
         if (!$user) {
             $user = $this->Auth_model->create_pending_viewer($email, $display_name);
             $this->session->set_flashdata(
-                'error',
+                'info',
                 'Pendaftaran SSO berhasil. Akun Anda menunggu verifikasi Admin/BAAK sebelum dapat masuk.'
             );
             redirect('auth');
@@ -164,9 +167,9 @@ class Auth extends CI_Controller {
             return;
         }
 
-        $status_msg = $this->_viewer_status_message($user);
-        if ($status_msg !== null) {
-            $this->session->set_flashdata('error', $status_msg);
+        $status_flash = $this->_viewer_status_flash($user);
+        if ($status_flash !== null) {
+            $this->session->set_flashdata($status_flash['type'], $status_flash['message']);
             redirect('auth');
             return;
         }
@@ -183,15 +186,29 @@ class Auth extends CI_Controller {
     }
 
     private function _viewer_status_message($user) {
+        $flash = $this->_viewer_status_flash($user);
+        return $flash ? $flash['message'] : null;
+    }
+
+    private function _viewer_status_flash($user) {
         $status = isset($user->status) ? $user->status : 'Aktif';
         if ($status === 'Menunggu') {
-            return 'Akun Viewer Anda masih menunggu verifikasi Admin/BAAK.';
+            return array(
+                'type' => 'info',
+                'message' => 'Akun Viewer Anda masih menunggu verifikasi Admin/BAAK.'
+            );
         }
         if ($status === 'Ditolak') {
-            return 'Akun Viewer Anda ditolak. Hubungi Admin/BAAK.';
+            return array(
+                'type' => 'error',
+                'message' => 'Akun Viewer Anda ditolak. Hubungi Admin/BAAK.'
+            );
         }
         if ($status !== 'Aktif') {
-            return 'Akun Viewer Anda tidak aktif.';
+            return array(
+                'type' => 'error',
+                'message' => 'Akun Viewer Anda tidak aktif.'
+            );
         }
         return null;
     }
