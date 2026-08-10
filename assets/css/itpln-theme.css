@@ -62,6 +62,17 @@ body {
     color: var(--primary-color);
 }
 
+/* User menu: align dropdown to the right so it isn't clipped */
+.main-header .navbar-nav .nav-item.dropdown {
+    position: relative;
+}
+
+.main-header .navbar-nav .dropdown-menu {
+    right: 0 !important;
+    left: auto !important;
+    min-width: 12rem;
+}
+
 /* Cards */
 .card {
     background-color: var(--card-bg);

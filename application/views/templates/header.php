@@ -49,16 +49,18 @@
             </li>
             <!-- User Profile -->
             <li class="nav-item dropdown">
-                <a class="nav-link" data-bs-toggle="dropdown" href="#">
+                <a class="nav-link" data-bs-toggle="dropdown" href="#" role="button" aria-expanded="false">
                     <i class="fas fa-user-circle fa-lg text-primary"></i> <?= $this->session->userdata('nama_lengkap') ?>
                 </a>
-                <div class="dropdown-menu dropdown-menu-lg dropdown-menu-right">
-                    <span class="dropdown-item dropdown-header"><?= $this->session->userdata('role') ?></span>
-                    <div class="dropdown-divider"></div>
-                    <a href="<?= base_url('auth/logout') ?>" class="dropdown-item text-danger">
-                        <i class="fas fa-sign-out-alt mr-2"></i> Logout
-                    </a>
-                </div>
+                <ul class="dropdown-menu dropdown-menu-end shadow">
+                    <li><h6 class="dropdown-header"><?= $this->session->userdata('role') ?></h6></li>
+                    <li><hr class="dropdown-divider"></li>
+                    <li>
+                        <a href="<?= base_url('auth/logout') ?>" class="dropdown-item text-danger">
+                            <i class="fas fa-sign-out-alt me-2"></i> Logout
+                        </a>
+                    </li>
+                </ul>
             </li>
         </ul>
     </nav>
