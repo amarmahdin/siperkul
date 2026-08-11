@@ -11,7 +11,7 @@
 <!-- jQuery -->
 <script src="https://code.jquery.com/jquery-3.7.0.min.js"></script>
 <!-- Bootstrap 5 Bundle -->
-<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+<script src="<?= base_url('assets/vendor/bootstrap/js/bootstrap.bundle.min.js') ?>"></script>
 <!-- AdminLTE App (requires jQuery & Bootstrap 4 plugins usually, but works mostly fine with 5 or we just use it for layout) -->
 <!-- We load bootstrap 4 bundle from CDN just for adminlte internal scripts if needed, but since we use bs5, we'll try to stick to bs5 bundle. AdminLTE 3 requires bs4, so for some interactive components we might need it, but let's try with bs5 bundle and adminlte js. -->
 <script src="https://cdn.jsdelivr.net/npm/admin-lte@3.2/dist/js/adminlte.min.js"></script>
@@ -21,7 +21,7 @@
 <script src="https://cdn.datatables.net/responsive/2.5.0/js/dataTables.responsive.min.js"></script>
 <script src="https://cdn.datatables.net/responsive/2.5.0/js/responsive.bootstrap5.min.js"></script>
 <!-- Select2 -->
-<script src="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/select2.min.js"></script>
+<script src="<?= base_url('assets/vendor/select2/js/select2.min.js') ?>"></script>
 <!-- SweetAlert2 -->
 <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11.7.20/dist/sweetalert2.all.min.js"></script>
 <!-- ChartJS -->
