@@ -30,6 +30,11 @@ function initSelect2(context) {
 $(document).ready(function() {
     initSelect2();
 
+    // Ini jalankan ulang Select2 di dalam modal setelah modal ditampilkan
+    $(document).on('shown.bs.modal', '.modal', function () {
+        initSelect2(this);
+    });
+
     // Tooltips
     var tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'))
     var tooltipList = tooltipTriggerList.map(function (tooltipTriggerEl) {
