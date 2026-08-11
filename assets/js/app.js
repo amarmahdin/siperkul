@@ -40,6 +40,14 @@ $(document).ready(function() {
     var tooltipList = tooltipTriggerList.map(function (tooltipTriggerEl) {
       return new bootstrap.Tooltip(tooltipTriggerEl)
     });
+
+    // Fokus otomatis ke kotak pencarian Select2 saat dropdown dibuka
+    $(document).on('select2:open', function () {
+        var $searchField = $('.select2-container--open .select2-search--dropdown .select2-search__field');
+        if ($searchField.length) {
+            $searchField.focus();
+        }
+    });
 });
 
 // SweetAlert Global Functions
