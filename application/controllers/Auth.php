@@ -148,7 +148,7 @@ class Auth extends CI_Controller {
             $user = $this->Auth_model->create_pending_viewer($email, $display_name);
             $this->session->set_flashdata(
                 'info',
-                'Pendaftaran SSO berhasil. Akun Anda menunggu verifikasi Admin/BAAK sebelum dapat masuk.'
+                'Harap hubungi akademik baa@itpln.ac.id untuk verifikasi'
             );
             redirect('auth');
             return;
@@ -195,7 +195,7 @@ class Auth extends CI_Controller {
         if ($status === 'Menunggu') {
             return array(
                 'type' => 'info',
-                'message' => 'Akun Viewer Anda masih menunggu verifikasi Admin/BAAK.'
+                'message' => 'Harap hubungi akademik baa@itpln.ac.id untuk verifikasi'
             );
         }
         if ($status === 'Ditolak') {
