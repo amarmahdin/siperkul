@@ -38,18 +38,6 @@
                 </div>
                 
                 <div class="col-lg-3 col-6">
-                    <div class="small-box bg-success rounded-3 shadow-sm">
-                        <div class="inner p-3">
-                            <h3><?= $jml_prodi ?></h3>
-                            <p><?= !empty($is_viewer) ? 'Prodi Diampu' : 'Program Studi' ?></p>
-                        </div>
-                        <div class="icon">
-                            <i class="fas fa-graduation-cap"></i>
-                        </div>
-                    </div>
-                </div>
-                
-                <div class="col-lg-3 col-6">
                     <div class="small-box bg-warning rounded-3 shadow-sm">
                         <div class="inner p-3">
                             <h3><?= $jml_dosen ?></h3>

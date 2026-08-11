@@ -56,7 +56,6 @@
 
             <!-- Legenda -->
             <div class="mb-3">
-                <span class="badge bg-success px-3 py-2 mr-2"><i class="fas fa-check"></i> Terpakai Normal</span>
                 <span class="badge bg-warning text-dark px-3 py-2 mr-2"><i class="fas fa-exclamation-circle"></i> Hampir Penuh (>90%)</span>
                 <span class="badge bg-danger px-3 py-2 mr-2"><i class="fas fa-times-circle"></i> Over Kapasitas</span>
                 <span class="badge bg-light text-dark border px-3 py-2"><i class="fas fa-bed"></i> Kosong</span>
