@@ -81,8 +81,8 @@ class Dosen extends CI_Controller {
             echo json_encode(['status' => 'success', 'message' => 'Data berhasil diupdate']);
         } else {
             if($this->db->get_where('tb_dosen', ['kode_dosen' => $data['kode_dosen']])->num_rows() > 0){
-                 echo json_encode(['status' => 'error', 'message' => 'Kode Dosen sudah ada!']);
-                 return;
+                echo json_encode(['status' => 'error', 'message' => 'Kode Dosen sudah ada!']);
+                return;
             }
             $this->Dosen_model->save($data);
             echo json_encode(['status' => 'success', 'message' => 'Data berhasil disimpan']);
