@@ -1,26 +1,34 @@
 /* Global Scripts for SIPERKUL */
 
-$(document).ready(function() {
-    // Setup Global AJAX with CSRF if needed (assuming CI3 default cookie setup)
-    // CodeIgniter automatically handles CSRF if config is set, but we might need it for AJAX
-    /*
-    var csrfName = 'csrf_test_name';
-    var csrfHash = $('meta[name="csrf-token"]').attr('content');
-    
-    $.ajaxSetup({
-        data: {
-            [csrfName]: csrfHash
+function initSelect2(context) {
+    var $root = context ? $(context) : $(document);
+    $root.find('select.select2, select.select-dosen').each(function () {
+        var $el = $(this);
+        if ($el.hasClass('select2-hidden-accessible')) {
+            $el.select2('destroy');
         }
-    });
-    */
 
-    // Initialize Select2 globally
-    if ($('.select2').length > 0) {
-        $('.select2').select2({
+        var opts = {
             theme: 'bootstrap-5',
-            width: '100%'
-        });
-    }
+            width: '100%',
+            minimumResultsForSearch: 0, // selalu tampilkan kotak search
+            language: {
+                noResults: function () { return 'Tidak ditemukan'; },
+                searching: function () { return 'Mencari...'; }
+            }
+        };
+
+        var $modal = $el.closest('.modal');
+        if ($modal.length) {
+            opts.dropdownParent = $modal;
+        }
+
+        $el.select2(opts);
+    });
+}
+
+$(document).ready(function() {
+    initSelect2();
 
     // Tooltips
     var tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'))

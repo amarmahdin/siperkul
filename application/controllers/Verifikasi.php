@@ -32,7 +32,7 @@ class Verifikasi extends CI_Controller {
     private function _page_js() {
         return <<<'JS'
 $(function () {
-    $('.select-dosen').select2({ width: '100%' });
+    // Select2 untuk .select-dosen diinisialisasi global via app.js
 
     $(document).on('click', '.btn-approve', function () {
         var row = $(this).closest('tr');

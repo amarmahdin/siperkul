@@ -131,10 +131,7 @@
 document.addEventListener('DOMContentLoaded', function () {
     var table;
 
-    $('.select2').select2({
-        theme: 'bootstrap-5',
-        dropdownParent: $('#modal_form')
-    });
+    // Select2 diinisialisasi global via assets/js/app.js (dengan search)
 
     table = $('#table_ruangan').DataTable({
         "processing": true,

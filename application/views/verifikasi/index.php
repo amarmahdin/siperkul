@@ -60,7 +60,7 @@
                                         <td><?= htmlspecialchars($p->email) ?></td>
                                         <td><?= date('d/m/Y H:i', strtotime($p->created_at)) ?></td>
                                         <td>
-                                            <select class="form-control form-control-sm select-dosen" style="width:100%;">
+                                            <select class="form-control form-control-sm select2 select-dosen" style="width:100%;">
                                                 <option value="">-- Pilih Dosen --</option>
                                                 <?php foreach ($dosen as $d): ?>
                                                     <option value="<?= $d->id_dosen ?>" <?= ((string)$preselect === (string)$d->id_dosen) ? 'selected' : '' ?>>
