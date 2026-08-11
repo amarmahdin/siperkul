@@ -107,16 +107,16 @@ class Dosen extends CI_Controller {
         @set_time_limit(300);
 
         $page = 1;
-        $per_page = 100;
+        $page_size = 100;
         $last_page = null;
         $synced_any = false;
         $total_synced = 0;
         $api_error = null;
 
         while ($page <= 500) {
+            // Sevima hanya menerima param `page` (bukan per_page / page[size])
             $url = 'https://api.sevimaplatform.com/siakadcloud/v1/dosen?' . http_build_query(array(
                 'page' => $page,
-                'per_page' => $per_page,
             ));
 
             $result = $this->_sevima_get($url);
@@ -143,6 +143,9 @@ class Dosen extends CI_Controller {
             } elseif (isset($meta['page']['lastPage'])) {
                 $last_page = (int) $meta['page']['lastPage'];
             }
+            if (isset($meta['per_page'])) {
+                $page_size = (int) $meta['per_page'];
+            }
 
             if ($last_page !== null && $page >= $last_page) {
                 break;
@@ -150,7 +153,7 @@ class Dosen extends CI_Controller {
             if (isset($payload['links']['next']) && empty($payload['links']['next'])) {
                 break;
             }
-            if ($last_page === null && count($items) < $per_page) {
+            if ($last_page === null && count($items) < $page_size) {
                 break;
             }
 
