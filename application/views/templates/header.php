@@ -8,7 +8,7 @@
     <!-- Google Font: Inter -->
     <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Inter:300,400,400i,600,700&display=fallback">
     <!-- Font Awesome -->
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="<?= base_url('assets/vendor/fontawesome/css/all.min.css') ?>">
     <!-- Bootstrap 5 -->
     <link href="<?= base_url('assets/vendor/bootstrap/css/bootstrap.min.css') ?>" rel="stylesheet">
     <!-- DataTables Bootstrap 5 -->
@@ -18,9 +18,9 @@
     <link rel="stylesheet" href="<?= base_url('assets/vendor/select2/css/select2.min.css') ?>" />
     <link rel="stylesheet" href="<?= base_url('assets/vendor/select2/css/select2-bootstrap-5-theme.min.css') ?>" />
     <!-- SweetAlert2 -->
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/sweetalert2@11.7.20/dist/sweetalert2.min.css">
+    <link rel="stylesheet" href="<?= base_url('assets/vendor/sweetalert2/sweetalert2.min.css') ?>">
     <!-- Theme style AdminLTE 3 -->
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/admin-lte@3.2/dist/css/adminlte.min.css">
+    <link rel="stylesheet" href="<?= base_url('assets/vendor/adminlte/adminlte.min.css') ?>">
     <!-- Custom ITPLN Theme -->
     <link rel="stylesheet" href="<?= base_url('assets/css/itpln-theme.css') ?>">
 </head>
