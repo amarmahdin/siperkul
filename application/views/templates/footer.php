@@ -25,7 +25,7 @@
 <!-- SweetAlert2 -->
 <script src="<?= base_url('assets/vendor/sweetalert2/sweetalert2.all.min.js') ?>"></script>
 <!-- ChartJS -->
-<script src="<?= base_url('assets/vendor/chartjs/chart.min.js') ?>"></script>
+<script src="<?= base_url('assets/vendor/chartjs/chart.umd.min.js') ?>"></script>
 <!-- Custom App JS -->
 <script src="<?= base_url('assets/js/app.js') ?>"></script>
 
