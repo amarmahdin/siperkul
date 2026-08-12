@@ -15,12 +15,6 @@
 
     <section class="content">
         <div class="container-fluid fade-in">
-            <div class="alert alert-info">
-                <strong>Kenapa perlu pilih dosen?</strong>
-                Saat Acc, akun Viewer harus dihubungkan ke data dosen di master,
-                agar setelah login hanya melihat jadwal mengajar dosen tersebut.
-            </div>
-
             <div class="card card-warning card-outline">
                 <div class="card-header">
                     <h3 class="card-title">Antrian Menunggu Verifikasi</h3>

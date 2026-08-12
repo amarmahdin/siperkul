@@ -18,7 +18,6 @@ class Mata_kuliah extends CI_Controller {
         $data['title'] = 'Data Mata Kuliah';
         
         $data['prodi'] = $this->db->get('tb_prodi')->result();
-        $data['sync_message'] = $this->_sync_sevima();
 
         $this->load->view('templates/header', $data);
         $this->load->view('templates/sidebar', $data);
@@ -228,8 +227,8 @@ class Mata_kuliah extends CI_Controller {
         }
 
         $attr = $item['attributes'];
-        $kode_mk = trim(isset($attr['kode_mk']) ? $attr['kode_mk'] : (isset($attr['kode'] ) ? $attr['kode'] : (isset($attr['kode_mata_kuliah']) ? $attr['kode_mata_kuliah'] : '')));
-        $nama_mk = trim(isset($attr['nama_mk']) ? $attr['nama_mk'] : (isset($attr['nama']) ? $attr['nama'] : (isset($attr['nama_mata_kuliah']) ? $attr['nama_mata_kuliah'] : '')));
+        $kode_mk = trim(isset($attr['kode']) ? $attr['kode'] : (isset($attr['kode_mk']) ? $attr['kode_mk'] : (isset($attr['kode_mata_kuliah']) ? $attr['kode_mata_kuliah'] : '')));
+        $nama_mk = trim(isset($attr['nama']) ? $attr['nama'] : (isset($attr['nama_mk']) ? $attr['nama_mk'] : (isset($attr['nama_mata_kuliah']) ? $attr['nama_mata_kuliah'] : '')));
         $sks = isset($attr['sks']) ? intval($attr['sks']) : (isset($attr['jumlah_sks']) ? intval($attr['jumlah_sks']) : 0);
         $semester = isset($attr['semester']) ? intval($attr['semester']) : 0;
         $jenis = trim(isset($attr['jenis']) ? $attr['jenis'] : (isset($attr['type']) ? $attr['type'] : 'Wajib'));
@@ -250,15 +249,15 @@ class Mata_kuliah extends CI_Controller {
             return;
         }
 
-        $this->db->group_start();
         if ($kode_mk !== '') {
-            $this->db->where('kode_mk', $kode_mk);
-            $this->db->or_where('nama_mk', $nama_mk);
+            $exist = $this->db->get_where('tb_mata_kuliah', array('kode_mk' => $kode_mk))->row();
         } else {
-            $this->db->where('nama_mk', $nama_mk);
+            $exist = $this->db
+                ->where('nama_mk', $nama_mk)
+                ->where('id_prodi', $id_prodi)
+                ->get('tb_mata_kuliah')
+                ->row();
         }
-        $this->db->group_end();
-        $exist = $this->db->get('tb_mata_kuliah')->row();
 
         $data_db = array(
             'kode_mk' => $kode_mk ?: 'MK-' . substr(md5($nama_mk), 0, 6),
