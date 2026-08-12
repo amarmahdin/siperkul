@@ -18,6 +18,7 @@ class Mata_kuliah extends CI_Controller {
         $data['title'] = 'Data Mata Kuliah';
         
         $data['prodi'] = $this->db->get('tb_prodi')->result();
+        $this->_sync_sevima();
 
         $this->load->view('templates/header', $data);
         $this->load->view('templates/sidebar', $data);
@@ -115,6 +116,7 @@ class Mata_kuliah extends CI_Controller {
         $total_synced = 0;
         $api_error = null;
 
+        $retry = 0;
         while ($page <= 500) {
             $url = 'https://api.sevimaplatform.com/siakadcloud/v1/mata-kuliah?' . http_build_query(array(
                 'page' => $page,
@@ -122,10 +124,16 @@ class Mata_kuliah extends CI_Controller {
 
             $result = $this->_sevima_get($url);
             if (!$result['ok']) {
+                if (isset($result['httpcode']) && $result['httpcode'] === 429 && $retry < 5) {
+                    $retry++;
+                    sleep(2 * $retry);
+                    continue;
+                }
                 $api_error = $result['error'];
                 break;
             }
 
+            $retry = 0;
             $payload = $result['data'];
             $items = isset($payload['data']) && is_array($payload['data']) ? $payload['data'] : array();
             if (empty($items)) {
@@ -159,6 +167,7 @@ class Mata_kuliah extends CI_Controller {
             }
 
             $page++;
+            usleep(250000);
         }
 
         if ($synced_any) {
@@ -211,14 +220,14 @@ class Mata_kuliah extends CI_Controller {
             } elseif (isset($decoded['message'])) {
                 $detail = $decoded['message'];
             }
-            return array('ok' => false, 'error' => $detail, 'data' => null);
+            return array('ok' => false, 'error' => $detail, 'data' => null, 'httpcode' => $httpcode);
         }
 
         if (!is_array($decoded)) {
-            return array('ok' => false, 'error' => 'Respons API tidak valid', 'data' => null);
+            return array('ok' => false, 'error' => 'Respons API tidak valid', 'data' => null, 'httpcode' => $httpcode);
         }
 
-        return array('ok' => true, 'error' => null, 'data' => $decoded);
+        return array('ok' => true, 'error' => null, 'data' => $decoded, 'httpcode' => $httpcode);
     }
 
     private function _upsert_mk_from_sevima($item) {
@@ -249,16 +258,6 @@ class Mata_kuliah extends CI_Controller {
             return;
         }
 
-        if ($kode_mk !== '') {
-            $exist = $this->db->get_where('tb_mata_kuliah', array('kode_mk' => $kode_mk))->row();
-        } else {
-            $exist = $this->db
-                ->where('nama_mk', $nama_mk)
-                ->where('id_prodi', $id_prodi)
-                ->get('tb_mata_kuliah')
-                ->row();
-        }
-
         $data_db = array(
             'kode_mk' => $kode_mk ?: 'MK-' . substr(md5($nama_mk), 0, 6),
             'nama_mk' => $nama_mk,
@@ -267,15 +266,6 @@ class Mata_kuliah extends CI_Controller {
             'jenis' => $jenis,
             'id_prodi' => $id_prodi,
         );
-
-        if ($exist) {
-            $this->Mata_kuliah_model->update(array('id_mk' => $exist->id_mk), $data_db);
-            return;
-        }
-
-        if ($this->db->get_where('tb_mata_kuliah', array('kode_mk' => $data_db['kode_mk']))->num_rows() > 0) {
-            $data_db['kode_mk'] = $data_db['kode_mk'] . '-' . rand(1, 999);
-        }
 
         $this->Mata_kuliah_model->save($data_db);
     }
