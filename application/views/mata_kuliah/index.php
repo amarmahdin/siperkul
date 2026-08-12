@@ -17,6 +17,12 @@
                     <button class="btn btn-primary btn-sm ml-auto" onclick="add_mk()"><i class="fas fa-plus"></i> Tambah Data</button>
                 </div>
                 <div class="card-body">
+                    <?php if (!empty($sync_message)): ?>
+                        <div class="alert alert-<?= $sync_message['type'] ?> alert-dismissible fade show" role="alert">
+                            <?= $sync_message['text'] ?>
+                            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                        </div>
+                    <?php endif; ?>
                     <table id="table_mk" class="table table-striped table-bordered dt-responsive nowrap" style="width:100%">
                         <thead>
                             <tr>
