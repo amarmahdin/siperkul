@@ -273,6 +273,7 @@ class Mata_kuliah extends CI_Controller {
     private function _resolve_prodi_id($attr) {
         $search = array(
             'id_prodi',
+            'id_program_studi',
             'prodi_id',
             'kode_prodi',
             'kode_program_studi',
