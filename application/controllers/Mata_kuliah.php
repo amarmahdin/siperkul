@@ -107,7 +107,7 @@ class Mata_kuliah extends CI_Controller {
             return null;
         }
 
-        @set_time_limit(300);
+        @set_time_limit(1200);
 
         $page = 1;
         $page_size = 100;
@@ -116,24 +116,24 @@ class Mata_kuliah extends CI_Controller {
         $total_synced = 0;
         $api_error = null;
 
-        $retry = 0;
-        while ($page <= 500) {
+        $retry429 = 0;
+        while ($page <= 1000) {
             $url = 'https://api.sevimaplatform.com/siakadcloud/v1/mata-kuliah?' . http_build_query(array(
                 'page' => $page,
             ));
 
             $result = $this->_sevima_get($url);
             if (!$result['ok']) {
-                if (isset($result['httpcode']) && $result['httpcode'] === 429 && $retry < 5) {
-                    $retry++;
-                    sleep(2 * $retry);
+                if (isset($result['httpcode']) && $result['httpcode'] === 429 && $retry429 < 20) {
+                    $retry429++;
+                    sleep(min(10, 2 * $retry429));
                     continue;
                 }
                 $api_error = $result['error'];
                 break;
             }
 
-            $retry = 0;
+            $retry429 = 0;
             $payload = $result['data'];
             $items = isset($payload['data']) && is_array($payload['data']) ? $payload['data'] : array();
             if (empty($items)) {
@@ -167,7 +167,7 @@ class Mata_kuliah extends CI_Controller {
             }
 
             $page++;
-            usleep(250000);
+            sleep(2);
         }
 
         if ($synced_any) {
