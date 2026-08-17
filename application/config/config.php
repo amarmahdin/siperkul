@@ -23,7 +23,17 @@ defined('BASEPATH') OR exit('No direct script access allowed');
 | a PHP script and you can easily do that on your own.
 |
 */
-$config['base_url'] = 'http://localhost/siperkul/';
+// Diambil dari BASE_URL di .env (lihat .env.example / .env.production.example)
+$base_url = getenv('BASE_URL');
+if ($base_url === FALSE || $base_url === '')
+{
+	$base_url = 'http://localhost/siperkul/';
+}
+if (substr($base_url, -1) !== '/')
+{
+	$base_url .= '/';
+}
+$config['base_url'] = $base_url;
 
 /*
 |--------------------------------------------------------------------------
@@ -410,8 +420,8 @@ $config['sess_regenerate_destroy'] = FALSE;
 $config['cookie_prefix']	= '';
 $config['cookie_domain']	= '';
 $config['cookie_path']		= '/';
-$config['cookie_secure']	= FALSE;
-$config['cookie_httponly'] 	= FALSE;
+$config['cookie_secure']	= (ENVIRONMENT === 'production');
+$config['cookie_httponly'] 	= TRUE;
 $config['cookie_samesite'] 	= 'Lax';
 
 /*

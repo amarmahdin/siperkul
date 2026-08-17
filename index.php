@@ -52,8 +52,59 @@
  *     production
  *
  * NOTE: If you change these, also change the error_reporting() code below
+ *
+ * Prefer APP_ENV from .env (development | testing | production).
+ * Override with server env CI_ENV if set.
  */
-	define('ENVIRONMENT', isset($_SERVER['CI_ENV']) ? $_SERVER['CI_ENV'] : 'development');
+	// Early .env load so APP_ENV is available before ENVIRONMENT is defined
+	$_siperkul_env = dirname(__FILE__).DIRECTORY_SEPARATOR.'.env';
+	if (is_file($_siperkul_env) && is_readable($_siperkul_env))
+	{
+		foreach (file($_siperkul_env, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES) as $_line)
+		{
+			$_line = trim($_line);
+			if ($_line === '' || (isset($_line[0]) && $_line[0] === '#') || strpos($_line, '=') === FALSE)
+			{
+				continue;
+			}
+
+			list($_k, $_v) = explode('=', $_line, 2);
+			$_k = trim($_k);
+			$_v = trim($_v);
+			if ($_k === '')
+			{
+				continue;
+			}
+
+			$_already = getenv($_k);
+			if ($_already !== FALSE && $_already !== '')
+			{
+				continue;
+			}
+
+			if (
+				(strlen($_v) >= 2) &&
+				(($_v[0] === '"' && substr($_v, -1) === '"') ||
+				 ($_v[0] === "'" && substr($_v, -1) === "'"))
+			)
+			{
+				$_v = substr($_v, 1, -1);
+			}
+
+			putenv($_k.'='.$_v);
+			$_ENV[$_k] = $_v;
+			$_SERVER[$_k] = $_v;
+		}
+	}
+	unset($_siperkul_env, $_line, $_k, $_v, $_already);
+
+	$_app_env = getenv('APP_ENV');
+	if ($_app_env === FALSE || $_app_env === '')
+	{
+		$_app_env = 'development';
+	}
+	define('ENVIRONMENT', isset($_SERVER['CI_ENV']) ? $_SERVER['CI_ENV'] : $_app_env);
+	unset($_app_env);
 
 /*
  *---------------------------------------------------------------
