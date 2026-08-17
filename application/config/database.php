@@ -73,12 +73,18 @@ defined('BASEPATH') OR exit('No direct script access allowed');
 $active_group = 'default';
 $query_builder = TRUE;
 
+// Kredensial dari .env (lihat .env.example). Fallback = lokal XAMPP.
+$db_hostname = function_exists('env') ? env('DB_HOSTNAME', 'localhost') : 'localhost';
+$db_username = function_exists('env') ? env('DB_USERNAME', 'root') : 'root';
+$db_password = function_exists('env') ? env('DB_PASSWORD', '') : '';
+$db_database = function_exists('env') ? env('DB_DATABASE', 'siperkul') : 'siperkul';
+
 $db['default'] = array(
 	'dsn'	=> '',
-	'hostname' => 'localhost',
-	'username' => 'root',
-	'password' => '',
-	'database' => 'siperkul',
+	'hostname' => $db_hostname ? $db_hostname : 'localhost',
+	'username' => $db_username ? $db_username : 'root',
+	'password' => ($db_password !== NULL) ? $db_password : '',
+	'database' => $db_database ? $db_database : 'siperkul',
 	'dbdriver' => 'mysqli',
 	'dbprefix' => '',
 	'pconnect' => FALSE,

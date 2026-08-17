@@ -24,8 +24,8 @@ defined('BASEPATH') OR exit('No direct script access allowed');
 |
 */
 // Diambil dari BASE_URL di .env (lihat .env.example / .env.production.example)
-$base_url = getenv('BASE_URL');
-if ($base_url === FALSE || $base_url === '')
+$base_url = function_exists('env') ? env('BASE_URL', 'http://localhost/siperkul/') : 'http://localhost/siperkul/';
+if ($base_url === NULL || $base_url === '')
 {
 	$base_url = 'http://localhost/siperkul/';
 }

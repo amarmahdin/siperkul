@@ -4,6 +4,7 @@
 .env
 .env.local
 .env.*.local
+.env.production
 
 application/cache/*
 !application/cache/index.html
@@ -35,3 +36,16 @@ user_guide_src/cilexer/pycilexer.egg-info/*
 *.sublime-project
 /tests/tests/
 /tests/results/
+
+# Deploy package (contains secrets)
+siperkul-infinityfree.zip
+deploy_staging/
+.envds
+
+
+siperkul-part1-core.zip
+siperkul-part2-vendor.zip
+
+
+siperkul-fix-env.zip
+

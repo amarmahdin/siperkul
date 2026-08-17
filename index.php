@@ -76,8 +76,24 @@
 				continue;
 			}
 
-			$_already = getenv($_k);
-			if ($_already !== FALSE && $_already !== '')
+			$_already = NULL;
+			if (isset($_ENV[$_k]) && $_ENV[$_k] !== '')
+			{
+				$_already = $_ENV[$_k];
+			}
+			elseif (isset($_SERVER[$_k]) && $_SERVER[$_k] !== '')
+			{
+				$_already = $_SERVER[$_k];
+			}
+			else
+			{
+				$_tmp = getenv($_k);
+				if ($_tmp !== FALSE && $_tmp !== '')
+				{
+					$_already = $_tmp;
+				}
+			}
+			if ($_already !== NULL)
 			{
 				continue;
 			}
@@ -91,20 +107,40 @@
 				$_v = substr($_v, 1, -1);
 			}
 
-			putenv($_k.'='.$_v);
+			// putenv() often disabled on shared hosting
+			if (function_exists('putenv'))
+			{
+				@putenv($_k.'='.$_v);
+			}
 			$_ENV[$_k] = $_v;
 			$_SERVER[$_k] = $_v;
 		}
 	}
-	unset($_siperkul_env, $_line, $_k, $_v, $_already);
+	unset($_siperkul_env, $_line, $_k, $_v, $_already, $_tmp);
 
-	$_app_env = getenv('APP_ENV');
-	if ($_app_env === FALSE || $_app_env === '')
+	$_app_env = 'development';
+	if (isset($_SERVER['CI_ENV']) && $_SERVER['CI_ENV'] !== '')
 	{
-		$_app_env = 'development';
+		$_app_env = $_SERVER['CI_ENV'];
 	}
-	define('ENVIRONMENT', isset($_SERVER['CI_ENV']) ? $_SERVER['CI_ENV'] : $_app_env);
-	unset($_app_env);
+	elseif (isset($_ENV['APP_ENV']) && $_ENV['APP_ENV'] !== '')
+	{
+		$_app_env = $_ENV['APP_ENV'];
+	}
+	elseif (isset($_SERVER['APP_ENV']) && $_SERVER['APP_ENV'] !== '')
+	{
+		$_app_env = $_SERVER['APP_ENV'];
+	}
+	else
+	{
+		$_tmp = getenv('APP_ENV');
+		if ($_tmp !== FALSE && $_tmp !== '')
+		{
+			$_app_env = $_tmp;
+		}
+	}
+	define('ENVIRONMENT', $_app_env);
+	unset($_app_env, $_tmp);
 
 /*
  *---------------------------------------------------------------
@@ -117,7 +153,8 @@
 switch (ENVIRONMENT)
 {
 	case 'development':
-		error_reporting(-1);
+		// Hide PHP 8.2+ deprecations from CI3 dynamic properties
+		error_reporting(E_ALL & ~E_DEPRECATED & ~E_USER_DEPRECATED);
 		ini_set('display_errors', 1);
 	break;
 

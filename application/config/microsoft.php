@@ -18,16 +18,16 @@ defined('BASEPATH') OR exit('No direct script access allowed');
 |
 */
 $config['microsoft_enabled'] = filter_var(
-	getenv('MICROSOFT_ENABLED') !== FALSE ? getenv('MICROSOFT_ENABLED') : 'true',
+	function_exists('env') ? env('MICROSOFT_ENABLED', 'true') : 'true',
 	FILTER_VALIDATE_BOOLEAN
 );
 
-$config['microsoft_tenant_id']     = getenv('MICROSOFT_TENANT_ID') ?: '';
-$config['microsoft_client_id']     = getenv('MICROSOFT_CLIENT_ID') ?: '';
-$config['microsoft_client_secret'] = getenv('MICROSOFT_CLIENT_SECRET') ?: '';
-$config['microsoft_redirect_uri']  = getenv('MICROSOFT_REDIRECT_URI') ?: 'http://localhost/siperkul/auth/microsoft_callback';
-$config['microsoft_scopes']        = getenv('MICROSOFT_SCOPES') ?: 'openid profile email User.Read';
-$config['microsoft_allowed_domain']= getenv('MICROSOFT_ALLOWED_DOMAIN') ?: 'itpln.ac.id';
+$config['microsoft_tenant_id']     = function_exists('env') ? (string) env('MICROSOFT_TENANT_ID', '') : '';
+$config['microsoft_client_id']     = function_exists('env') ? (string) env('MICROSOFT_CLIENT_ID', '') : '';
+$config['microsoft_client_secret'] = function_exists('env') ? (string) env('MICROSOFT_CLIENT_SECRET', '') : '';
+$config['microsoft_redirect_uri']  = function_exists('env') ? (string) env('MICROSOFT_REDIRECT_URI', 'http://localhost/siperkul/auth/microsoft_callback') : 'http://localhost/siperkul/auth/microsoft_callback';
+$config['microsoft_scopes']        = function_exists('env') ? (string) env('MICROSOFT_SCOPES', 'openid profile email User.Read') : 'openid profile email User.Read';
+$config['microsoft_allowed_domain']= function_exists('env') ? (string) env('MICROSOFT_ALLOWED_DOMAIN', 'itpln.ac.id') : 'itpln.ac.id';
 
 $config['microsoft_authorize_url'] = 'https://login.microsoftonline.com/{tenant}/oauth2/v2.0/authorize';
 $config['microsoft_token_url']     = 'https://login.microsoftonline.com/{tenant}/oauth2/v2.0/token';
