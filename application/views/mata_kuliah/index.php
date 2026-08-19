@@ -17,24 +17,6 @@
                     <button class="btn btn-primary btn-sm ml-auto" onclick="add_mk()"><i class="fas fa-plus"></i> Tambah Data</button>
                 </div>
                 <div class="card-body">
-                    <?php if (!empty($sync_mk) && is_array($sync_mk) && !empty($sync_mk['text'])): ?>
-                        <div class="alert alert-<?= htmlspecialchars($sync_mk['type']) ?> alert-dismissible fade show" role="alert">
-                            <?= htmlspecialchars($sync_mk['text']) ?>
-                            <?php if (($sync_mk['type'] ?? '') !== 'success'): ?>
-                                <div class="mt-2">
-                                    <a class="btn btn-sm btn-warning" href="<?= site_url('mata_kuliah?force_sync=1') ?>">Lanjut sync sekarang</a>
-                                </div>
-                            <?php endif; ?>
-                            <button type="button" class="close" data-dismiss="alert" aria-label="Close">
-                                <span aria-hidden="true">&times;</span>
-                            </button>
-                        </div>
-                    <?php endif; ?>
-                    <div class="mb-2">
-                        <a class="btn btn-sm btn-outline-primary" href="<?= site_url('mata_kuliah?force_sync=1') ?>" title="Paksa sync ulang dari API">
-                            <i class="fas fa-sync"></i> Sync API (force)
-                        </a>
-                    </div>
                     <table id="table_mk" class="table table-striped table-bordered dt-responsive nowrap" style="width:100%">
                         <thead>
                             <tr>

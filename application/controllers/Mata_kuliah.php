@@ -18,7 +18,7 @@ class Mata_kuliah extends CI_Controller {
         $data['title'] = 'Data Mata Kuliah';
         
         $data['prodi'] = $this->db->get('tb_prodi')->result();
-        $data['sync_mk'] = $this->_sync_sevima();
+        $this->_sync_sevima();
 
         $this->load->view('templates/header', $data);
         $this->load->view('templates/sidebar', $data);
