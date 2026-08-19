@@ -24,6 +24,11 @@ class Jadwal extends CI_Controller {
 
         // Populate dropdowns
         $data['prodi'] = $this->db->get('tb_prodi')->result();
+        if ($this->db->field_exists('id_kurikulum', 'tb_mata_kuliah')) {
+            $this->db->order_by('id_kurikulum', 'DESC');
+        }
+        $this->db->order_by('kode_mk', 'ASC');
+        $this->db->order_by('nama_mk', 'ASC');
         $data['mata_kuliah'] = $this->db->get('tb_mata_kuliah')->result();
         $data['dosen'] = $this->db->get('tb_dosen')->result();
         // Only active ruangan
@@ -44,7 +49,11 @@ class Jadwal extends CI_Controller {
             $row = array();
             $row[] = $no;
             $row[] = $field->nama_prodi;
-            $row[] = $field->kode_mk . ' - ' . $field->nama_mk;
+            $mk_label = $field->kode_mk . ' - ' . $field->nama_mk;
+            if (!empty($field->id_kurikulum)) {
+                $mk_label .= ' <small class="text-muted">[Kurikulum ' . htmlspecialchars($field->id_kurikulum) . ']</small>';
+            }
+            $row[] = $mk_label;
             $row[] = $field->kelas;
             $row[] = $field->nama_dosen;
             $row[] = $field->hari . '<br><small>' . date('H:i', strtotime($field->jam_mulai)) . ' - ' . date('H:i', strtotime($field->jam_selesai)) . '</small>';

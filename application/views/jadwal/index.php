@@ -74,7 +74,13 @@
                                 <select name="id_mk" class="form-control select2" style="width: 100%;" required>
                                     <option value="">-- Pilih Mata Kuliah --</option>
                                     <?php foreach($mata_kuliah as $mk): ?>
-                                        <option value="<?= $mk->id_mk ?>"><?= $mk->kode_mk ?> - <?= $mk->nama_mk ?> (<?= $mk->sks ?> SKS)</option>
+                                        <?php
+                                            $kurikulum = !empty($mk->id_kurikulum) ? $mk->id_kurikulum : '-';
+                                            $label = $mk->kode_mk . ' - ' . $mk->nama_mk . ' (' . $mk->sks . ' SKS) [Kurikulum ' . $kurikulum . ']';
+                                        ?>
+                                        <option value="<?= $mk->id_mk ?>" data-kurikulum="<?= htmlspecialchars($kurikulum) ?>">
+                                            <?= htmlspecialchars($label) ?>
+                                        </option>
                                     <?php endforeach; ?>
                                 </select>
                             </div>

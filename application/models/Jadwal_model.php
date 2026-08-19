@@ -10,7 +10,7 @@ class Jadwal_model extends CI_Model {
 
     private function _get_datatables_query()
     {
-        $this->db->select('tb_jadwal.*, tb_prodi.nama_prodi, tb_mata_kuliah.kode_mk, tb_mata_kuliah.nama_mk, tb_dosen.nama as nama_dosen, tb_ruangan.nama_ruangan, tb_ruangan.kapasitas_kuliah, tb_tahun_akademik.tahun_akademik, tb_tahun_akademik.semester');
+        $this->db->select('tb_jadwal.*, tb_prodi.nama_prodi, tb_mata_kuliah.kode_mk, tb_mata_kuliah.nama_mk, tb_mata_kuliah.id_kurikulum, tb_dosen.nama as nama_dosen, tb_ruangan.nama_ruangan, tb_ruangan.kapasitas_kuliah, tb_tahun_akademik.tahun_akademik, tb_tahun_akademik.semester');
         $this->db->from($this->table);
         $this->db->join('tb_prodi', 'tb_prodi.id_prodi = tb_jadwal.id_prodi');
         $this->db->join('tb_mata_kuliah', 'tb_mata_kuliah.id_mk = tb_jadwal.id_mk');
