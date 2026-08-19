@@ -18,7 +18,7 @@ class Mata_kuliah extends CI_Controller {
         $data['title'] = 'Data Mata Kuliah';
         
         $data['prodi'] = $this->db->get('tb_prodi')->result();
-        $this->_sync_sevima();
+        $data['sync_mk'] = $this->_sync_sevima();
 
         $this->load->view('templates/header', $data);
         $this->load->view('templates/sidebar', $data);
@@ -102,21 +102,36 @@ class Mata_kuliah extends CI_Controller {
         echo json_encode(['status' => 'success', 'message' => 'Data berhasil dihapus']);
     }
 
+    /**
+     * Sync semua halaman API Sevima (target = meta.total Postman, ~6393).
+     * Filter kurikulum hanya jika SEVIMA_MK_ID_KURIKULUM di-set di .env.
+     */
     private function _sync_sevima() {
-        if ($this->session->userdata('last_sync_mata_kuliah_all') && (time() - $this->session->userdata('last_sync_mata_kuliah_all') < 3600)) {
+        $force = ($this->input->get('force_sync') === '1');
+        if (
+            !$force &&
+            $this->session->userdata('last_sync_mata_kuliah_full_v2') &&
+            (time() - $this->session->userdata('last_sync_mata_kuliah_full_v2') < 3600)
+        ) {
             return null;
         }
 
-        @set_time_limit(1200);
+        @set_time_limit(1800);
+        $this->_ensure_mk_sevima_columns();
 
         $page = 1;
         $page_size = 100;
         $last_page = null;
-        $synced_any = false;
-        $total_synced = 0;
         $api_error = null;
-
         $retry429 = 0;
+        $total_synced = 0;
+        $total_skipped = 0;
+        $api_total = null;
+        $completed = false;
+
+        $configured = function_exists('env') ? env('SEVIMA_MK_ID_KURIKULUM', '') : '';
+        $filter_kurikulum = ($configured !== NULL && $configured !== '') ? (string) $configured : null;
+
         while ($page <= 1000) {
             $url = 'https://api.sevimaplatform.com/siakadcloud/v1/mata-kuliah?' . http_build_query(array(
                 'page' => $page,
@@ -124,10 +139,10 @@ class Mata_kuliah extends CI_Controller {
 
             $result = $this->_sevima_get($url);
             if (!$result['ok']) {
-                if (isset($result['httpcode']) && $result['httpcode'] === 429 && $retry429 < 20) {
+                if (isset($result['httpcode']) && (int) $result['httpcode'] === 429 && $retry429 < 40) {
                     $retry429++;
-                    sleep(min(10, 2 * $retry429));
-                    continue;
+                    sleep(min(30, 3 * $retry429));
+                    continue; // ulang halaman yang sama
                 }
                 $api_error = $result['error'];
                 break;
@@ -137,16 +152,14 @@ class Mata_kuliah extends CI_Controller {
             $payload = $result['data'];
             $items = isset($payload['data']) && is_array($payload['data']) ? $payload['data'] : array();
             if (empty($items)) {
+                $completed = true;
                 break;
             }
 
-            foreach ($items as $item) {
-                $this->_upsert_mk_from_sevima($item);
-                $total_synced++;
-            }
-            $synced_any = true;
-
             $meta = isset($payload['meta']) && is_array($payload['meta']) ? $payload['meta'] : array();
+            if (isset($meta['total'])) {
+                $api_total = (int) $meta['total'];
+            }
             if (isset($meta['last_page'])) {
                 $last_page = (int) $meta['last_page'];
             } elseif (isset($meta['page']['lastPage'])) {
@@ -156,36 +169,90 @@ class Mata_kuliah extends CI_Controller {
                 $page_size = (int) $meta['per_page'];
             }
 
+            foreach ($items as $item) {
+                $attr = isset($item['attributes']) && is_array($item['attributes']) ? $item['attributes'] : array();
+                if ($filter_kurikulum !== null) {
+                    $id_kurikulum = isset($attr['id_kurikulum']) ? trim((string) $attr['id_kurikulum']) : '';
+                    if ($id_kurikulum !== $filter_kurikulum) {
+                        $total_skipped++;
+                        continue;
+                    }
+                }
+                if ($this->_upsert_mk_from_sevima($item)) {
+                    $total_synced++;
+                } else {
+                    $total_skipped++;
+                }
+            }
+
             if ($last_page !== null && $page >= $last_page) {
+                $completed = true;
                 break;
             }
             if (isset($payload['links']['next']) && empty($payload['links']['next'])) {
+                $completed = true;
                 break;
             }
             if ($last_page === null && count($items) < $page_size) {
+                $completed = true;
                 break;
             }
 
             $page++;
-            sleep(2);
+            sleep(1); // jeda antar halaman agar tidak 429
         }
 
-        if ($synced_any) {
-            $this->session->set_userdata('last_sync_mata_kuliah_all', time());
-            return array(
-                'type' => 'success',
-                'text' => 'Sinkronisasi Mata Kuliah dari Sevima berhasil (' . $total_synced . ' baris diproses dari ' . $page . ' halaman).',
-            );
-        }
-
-        if ($api_error) {
+        if ($api_error && $total_synced === 0) {
             return array(
                 'type' => 'danger',
                 'text' => 'Gagal sync API Sevima Mata Kuliah: ' . $api_error,
             );
         }
 
-        return null;
+        // Hanya kunci 1 jam jika sync selesai penuh
+        if ($completed && !$api_error) {
+            $this->session->set_userdata('last_sync_mata_kuliah_full_v2', time());
+        } else {
+            $this->session->unset_userdata('last_sync_mata_kuliah_full_v2');
+        }
+
+        $db_total = (int) $this->db->count_all('tb_mata_kuliah');
+        $text = 'Sinkronisasi Mata Kuliah: ' . $total_synced . ' diproses di sesi ini';
+        if ($api_total !== null) {
+            $text .= ' (API total ' . $api_total . ')';
+        }
+        $text .= ', di database sekarang ' . $db_total . ' baris, sampai halaman ' . $page;
+        if ($filter_kurikulum !== null) {
+            $text .= ', filter kurikulum ' . $filter_kurikulum;
+        }
+        if ($total_skipped > 0) {
+            $text .= ', dilewati ' . $total_skipped;
+        }
+        if ($api_error) {
+            $text .= '. TERPUTUS: ' . $api_error . ' — buka lagi /mata_kuliah?force_sync=1 untuk lanjut.';
+            return array('type' => 'warning', 'text' => $text);
+        }
+        if (!$completed) {
+            $text .= '. Belum selesai — buka /mata_kuliah?force_sync=1 untuk lanjut.';
+            return array('type' => 'warning', 'text' => $text);
+        }
+        $text .= '.';
+
+        return array(
+            'type' => 'success',
+            'text' => $text,
+        );
+    }
+
+    private function _ensure_mk_sevima_columns() {
+        if (!$this->db->field_exists('id_sevima', 'tb_mata_kuliah')) {
+            $this->db->query("ALTER TABLE `tb_mata_kuliah` ADD `id_sevima` varchar(50) DEFAULT NULL AFTER `id_mk`");
+            $this->db->query("ALTER TABLE `tb_mata_kuliah` ADD UNIQUE KEY `id_sevima` (`id_sevima`)");
+        }
+        if (!$this->db->field_exists('id_kurikulum', 'tb_mata_kuliah')) {
+            $this->db->query("ALTER TABLE `tb_mata_kuliah` ADD `id_kurikulum` varchar(20) DEFAULT NULL AFTER `id_prodi`");
+            $this->db->query("ALTER TABLE `tb_mata_kuliah` ADD KEY `id_kurikulum` (`id_kurikulum`)");
+        }
     }
 
     private function _sevima_get($url) {
@@ -230,12 +297,22 @@ class Mata_kuliah extends CI_Controller {
         return array('ok' => true, 'error' => null, 'data' => $decoded, 'httpcode' => $httpcode);
     }
 
+    /**
+     * @return bool true jika baris disimpan/diupdate
+     */
     private function _upsert_mk_from_sevima($item) {
         if (!isset($item['attributes']) || !is_array($item['attributes'])) {
-            return;
+            return false;
         }
 
         $attr = $item['attributes'];
+
+        if (isset($attr['is_deleted']) && (string) $attr['is_deleted'] === '1') {
+            return false;
+        }
+
+        $id_sevima = isset($item['id']) ? trim((string) $item['id']) : '';
+        $id_kurikulum = isset($attr['id_kurikulum']) ? trim((string) $attr['id_kurikulum']) : '';
         $kode_mk = trim(isset($attr['kode']) ? $attr['kode'] : (isset($attr['kode_mk']) ? $attr['kode_mk'] : (isset($attr['kode_mata_kuliah']) ? $attr['kode_mata_kuliah'] : '')));
         $nama_mk = trim(isset($attr['nama']) ? $attr['nama'] : (isset($attr['nama_mk']) ? $attr['nama_mk'] : (isset($attr['nama_mata_kuliah']) ? $attr['nama_mata_kuliah'] : '')));
         $sks = isset($attr['sks']) ? intval($attr['sks']) : (isset($attr['jumlah_sks']) ? intval($attr['jumlah_sks']) : 0);
@@ -243,7 +320,7 @@ class Mata_kuliah extends CI_Controller {
         $jenis = trim(isset($attr['jenis']) ? $attr['jenis'] : (isset($attr['type']) ? $attr['type'] : 'Wajib'));
 
         if ($nama_mk === '') {
-            return;
+            return false;
         }
 
         $jenis_normalized = strtolower($jenis);
@@ -255,11 +332,17 @@ class Mata_kuliah extends CI_Controller {
 
         $id_prodi = $this->_resolve_prodi_id($attr);
         if (!$id_prodi) {
-            return;
+            return false;
+        }
+
+        if ($kode_mk === '') {
+            $kode_mk = 'MK-' . substr(md5($id_sevima . '|' . $nama_mk), 0, 8);
         }
 
         $data_db = array(
-            'kode_mk' => $kode_mk ?: 'MK-' . substr(md5($nama_mk), 0, 6),
+            'id_sevima' => $id_sevima !== '' ? $id_sevima : null,
+            'id_kurikulum' => $id_kurikulum !== '' ? $id_kurikulum : null,
+            'kode_mk' => $kode_mk,
             'nama_mk' => $nama_mk,
             'sks' => $sks > 0 ? $sks : 0,
             'semester' => $semester > 0 ? $semester : 0,
@@ -267,7 +350,8 @@ class Mata_kuliah extends CI_Controller {
             'id_prodi' => $id_prodi,
         );
 
-        $this->Mata_kuliah_model->save($data_db);
+        $this->Mata_kuliah_model->upsert_from_sevima($data_db);
+        return true;
     }
 
     private function _resolve_prodi_id($attr) {
@@ -298,9 +382,19 @@ class Mata_kuliah extends CI_Controller {
                 if ($row) {
                     return $row->id_prodi;
                 }
+
+                $row = $this->db->get_where('tb_prodi', array('kode_prodi' => $value))->row();
+                if ($row) {
+                    return $row->id_prodi;
+                }
             }
 
-            $row = $this->db->where('kode_prodi', $value)->or_where('LOWER(nama_prodi)', strtolower($value))->get('tb_prodi')->row();
+            $row = $this->db->group_start()
+                ->where('kode_prodi', $value)
+                ->or_where('LOWER(nama_prodi)', strtolower($value))
+                ->group_end()
+                ->get('tb_prodi')
+                ->row();
             if ($row) {
                 return $row->id_prodi;
             }

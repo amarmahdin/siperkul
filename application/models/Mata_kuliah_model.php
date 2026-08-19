@@ -81,6 +81,49 @@ class Mata_kuliah_model extends CI_Model {
         return $this->db->insert_id();
     }
 
+    /**
+     * Insert atau update berdasarkan kode_mk (unik logis dari Sevima).
+     */
+    public function upsert_by_kode($data)
+    {
+        if (empty($data['kode_mk'])) {
+            return $this->save($data);
+        }
+
+        $existing = $this->db->get_where($this->table, array('kode_mk' => $data['kode_mk']))->row();
+        if ($existing) {
+            $this->db->where('id_mk', $existing->id_mk)->update($this->table, $data);
+            return $existing->id_mk;
+        }
+
+        return $this->save($data);
+    }
+
+    /**
+     * Upsert berdasarkan id_sevima (1 baris API = 1 baris DB), fallback kode+kurikulum.
+     */
+    public function upsert_from_sevima($data)
+    {
+        $existing = null;
+        if (!empty($data['id_sevima'])) {
+            $existing = $this->db->get_where($this->table, array('id_sevima' => $data['id_sevima']))->row();
+        }
+        if (!$existing && !empty($data['kode_mk']) && !empty($data['id_kurikulum']) && $this->db->field_exists('id_kurikulum', $this->table)) {
+            $existing = $this->db->get_where($this->table, array(
+                'kode_mk' => $data['kode_mk'],
+                'id_kurikulum' => $data['id_kurikulum'],
+            ))->row();
+        }
+        // Jangan fallback ke kode_mk saja: bisa menggabungkan kurikulum berbeda jadi 1 baris
+
+        if ($existing) {
+            $this->db->where('id_mk', $existing->id_mk)->update($this->table, $data);
+            return $existing->id_mk;
+        }
+
+        return $this->save($data);
+    }
+
     public function update($where, $data)
     {
         $this->db->update($this->table, $data, $where);
