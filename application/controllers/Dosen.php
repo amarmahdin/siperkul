@@ -97,10 +97,12 @@ class Dosen extends CI_Controller {
     /**
      * Ambil semua halaman dari API Sevima, simpan ke tb_dosen.
      * Tampilan tetap pakai pagination DataTables (server-side).
+     * Contact fields (NIDN / email / no HP) hanya diisi jika API punya nilai.
      */
     private function _sync_sevima() {
-        // Key baru agar sync penuh jalan sekali setelah update pagination
-        if ($this->session->userdata('last_sync_dosen_all') && (time() - $this->session->userdata('last_sync_dosen_all') < 3600)) {
+        $force = $this->input->get('force_sync') === '1';
+        // Key v2: sync ulang contact fields (email_kampus / telepon fallback)
+        if (!$force && $this->session->userdata('last_sync_dosen_contact_v2') && (time() - $this->session->userdata('last_sync_dosen_contact_v2') < 3600)) {
             return null;
         }
 
@@ -111,6 +113,7 @@ class Dosen extends CI_Controller {
         $last_page = null;
         $synced_any = false;
         $total_synced = 0;
+        $contact_updated = 0;
         $api_error = null;
 
         while ($page <= 500) {
@@ -132,7 +135,9 @@ class Dosen extends CI_Controller {
             }
 
             foreach ($items as $item) {
-                $this->_upsert_dosen_from_sevima($item);
+                if ($this->_upsert_dosen_from_sevima($item)) {
+                    $contact_updated++;
+                }
                 $total_synced++;
             }
             $synced_any = true;
@@ -158,13 +163,14 @@ class Dosen extends CI_Controller {
             }
 
             $page++;
+            usleep(150000);
         }
 
         if ($synced_any) {
-            $this->session->set_userdata('last_sync_dosen_all', time());
+            $this->session->set_userdata('last_sync_dosen_contact_v2', time());
             return array(
                 'type' => 'success',
-                'text' => 'Sinkronisasi Sevima berhasil (' . $total_synced . ' baris diproses dari ' . $page . ' halaman).',
+                'text' => 'Sinkronisasi Sevima berhasil (' . $total_synced . ' baris, ' . $contact_updated . ' kontak diperbarui dari ' . $page . ' halaman).',
             );
         }
 
@@ -221,21 +227,41 @@ class Dosen extends CI_Controller {
         return array('ok' => true, 'error' => null, 'data' => $decoded);
     }
 
+    /**
+     * Upsert dosen dari Sevima.
+     * Untuk baris yang sudah ada: hanya isi nidn/email/no_hp jika API punya nilai (tidak menimpa kosong).
+     * @return bool true jika kontak diperbarui atau baris baru disimpan
+     */
     private function _upsert_dosen_from_sevima($item) {
         if (!isset($item['attributes']) || !is_array($item['attributes'])) {
-            return;
+            return false;
         }
 
         $attr = $item['attributes'];
-        $nidn = isset($attr['nidn']) ? trim($attr['nidn']) : '';
-        $nama_asli = isset($attr['nama']) ? trim($attr['nama']) : '';
-        $gelar_depan = isset($attr['gelar_depan']) ? trim($attr['gelar_depan']) : '';
-        $gelar_belakang = isset($attr['gelar_belakang']) ? trim($attr['gelar_belakang']) : '';
-        $email = isset($attr['email']) ? trim($attr['email']) : '';
-        $no_hp = isset($attr['nomor_hp']) ? trim($attr['nomor_hp']) : '';
+        $nidn = isset($attr['nidn']) ? trim((string) $attr['nidn']) : '';
+        $nama_asli = isset($attr['nama']) ? trim((string) $attr['nama']) : '';
+        $gelar_depan = isset($attr['gelar_depan']) ? trim((string) $attr['gelar_depan']) : '';
+        $gelar_belakang = isset($attr['gelar_belakang']) ? trim((string) $attr['gelar_belakang']) : '';
+
+        // Prioritas kontak: kampus dulu, lalu pribadi / alternatif
+        $email = '';
+        if (!empty($attr['email_kampus']) && trim((string) $attr['email_kampus']) !== '') {
+            $email = trim((string) $attr['email_kampus']);
+        } elseif (!empty($attr['email']) && trim((string) $attr['email']) !== '') {
+            $email = trim((string) $attr['email']);
+        }
+
+        $no_hp = '';
+        if (!empty($attr['nomor_hp']) && trim((string) $attr['nomor_hp']) !== '') {
+            $no_hp = trim((string) $attr['nomor_hp']);
+        } elseif (!empty($attr['telepon']) && trim((string) $attr['telepon']) !== '') {
+            $no_hp = trim((string) $attr['telepon']);
+        } elseif (!empty($attr['telepon_alternatif']) && trim((string) $attr['telepon_alternatif']) !== '') {
+            $no_hp = trim((string) $attr['telepon_alternatif']);
+        }
 
         if ($nama_asli === '') {
-            return;
+            return false;
         }
 
         $nama = $nama_asli;
@@ -247,6 +273,39 @@ class Dosen extends CI_Controller {
         }
         $nama = trim($nama);
 
+        $exist = null;
+        if ($nidn !== '') {
+            $exist = $this->db->get_where('tb_dosen', array('nidn' => $nidn))->row();
+        }
+        if (!$exist) {
+            $exist = $this->db->get_where('tb_dosen', array('nama' => $nama))->row();
+        }
+        if (!$exist && $nama_asli !== $nama) {
+            $exist = $this->db->get_where('tb_dosen', array('nama' => $nama_asli))->row();
+        }
+
+        // Hanya field kontak yang tersedia di API
+        $contact = array();
+        if ($nidn !== '') {
+            $contact['nidn'] = $nidn;
+        }
+        if ($email !== '') {
+            $contact['email'] = $email;
+        }
+        if ($no_hp !== '') {
+            $contact['no_hp'] = $no_hp;
+        }
+
+        if ($exist) {
+            if (empty($contact)) {
+                return false;
+            }
+            // Jangan timpa nilai lokal yang sudah terisi dengan yang sama; tetap update jika API punya data
+            $this->Dosen_model->update(array('id_dosen' => $exist->id_dosen), $contact);
+            return true;
+        }
+
+        // Dosen baru dari API (nama belum ada lokal)
         $words = explode(' ', preg_replace('/[^a-zA-Z\s]/', '', $nama_asli));
         $initials = '';
         foreach ($words as $w) {
@@ -259,29 +318,6 @@ class Dosen extends CI_Controller {
         }
 
         $kode_dosen = substr($initials, 0, 5);
-
-        $this->db->group_start();
-        if ($nidn !== '') {
-            $this->db->where('nidn', $nidn);
-            $this->db->or_where('nama', $nama);
-        } else {
-            $this->db->where('nama', $nama);
-        }
-        $this->db->group_end();
-        $exist = $this->db->get('tb_dosen')->row();
-
-        $data_db = array(
-            'nidn' => $nidn,
-            'nama' => $nama,
-            'email' => $email,
-            'no_hp' => $no_hp,
-        );
-
-        if ($exist) {
-            $this->Dosen_model->update(array('id_dosen' => $exist->id_dosen), $data_db);
-            return;
-        }
-
         $base_kode = $kode_dosen;
         $counter = 1;
         while ($this->db->get_where('tb_dosen', array('kode_dosen' => $kode_dosen))->num_rows() > 0) {
@@ -289,7 +325,15 @@ class Dosen extends CI_Controller {
             $counter++;
         }
 
-        $data_db['kode_dosen'] = $kode_dosen;
+        $data_db = array_merge(array(
+            'nama' => $nama,
+            'kode_dosen' => $kode_dosen,
+            'nidn' => $nidn !== '' ? $nidn : null,
+            'email' => $email !== '' ? $email : null,
+            'no_hp' => $no_hp !== '' ? $no_hp : null,
+        ), $contact);
+
         $this->Dosen_model->save($data_db);
+        return true;
     }
 }
