@@ -42,5 +42,6 @@ class Verifikasi_model extends CI_Model {
         $this->db->where('id_user', $id_user);
         $this->db->where('role', 'Viewer');
         $this->db->where('status', 'Menunggu');
+        return $this->db->delete('tb_users');
     }
 }
