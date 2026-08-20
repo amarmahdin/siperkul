@@ -149,6 +149,16 @@ class Auth extends CI_Controller {
             $user = null;
         }
 
+        if (!$user) {
+            $user = $this->Auth_model->create_pending_viewer($email, $display_name);
+            $this->session->set_flashdata(
+                'info',
+                'Harap hubungi akademik baa@itpln.ac.id untuk verifikasi'
+            );
+            redirect('auth');
+            return;
+        }
+
         // Akun non-Viewer (admin dll) yang punya email: izinkan SSO jika Aktif
         if ($user->role !== 'Viewer') {
             if (isset($user->status) && $user->status !== 'Aktif') {
