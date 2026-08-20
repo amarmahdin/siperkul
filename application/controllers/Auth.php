@@ -146,6 +146,7 @@ class Auth extends CI_Controller {
         $user = $this->Auth_model->get_user_by_email($email);
         if ($user && $user->role !== 'Viewer' && isset($user->status) && $user->status !== 'Ditolak') {
             $this->db->where('id_user', $user->id_user)->delete('tb_users');
+            $user = null;
         }
 
         // Akun non-Viewer (admin dll) yang punya email: izinkan SSO jika Aktif
