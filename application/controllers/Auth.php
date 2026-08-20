@@ -155,7 +155,7 @@ class Auth extends CI_Controller {
             $user = $this->Auth_model->create_pending_viewer($email, $display_name);
             $this->session->set_flashdata(
                 'info',
-                'Harap hubungi akademik baa@itpln.ac.id untuk verifikasi'
+                'Harap hubungi Akademik baa@itpln.ac.id untuk verifikasi'
             );
             redirect('auth');
             return;

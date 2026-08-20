@@ -40,7 +40,7 @@ $(function () {
         var id_dosen = row.find('.select-dosen').val();
 
         if (!id_dosen) {
-            Swal.fire('Perhatian', 'Pilih dosen yang akan dihubungkan terlebih dahulu.', 'warning');
+            Swal.fire('Perhatian', 'Pilih dosen untuk verifikasi terlebih dahulu.', 'warning');
             return;
         }
 
