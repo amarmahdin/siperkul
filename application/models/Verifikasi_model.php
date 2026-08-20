@@ -22,6 +22,7 @@ class Verifikasi_model extends CI_Model {
     public function get_all_viewer() {
        $this->db->select('tb_users.*, tb_dosen.nama as nama_dosen, tb_dosen.kode_dosen');
        $this->db->from('tb_users');
+       $this->db->join('tb_dosen', 'tb_dosen.id_dosen = tb_users.id_dosen', 'left');
     }
 
     public function approve($id_user, $id_dosen) {
