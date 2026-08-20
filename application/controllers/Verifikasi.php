@@ -137,8 +137,8 @@ JS;
         }
 
         $this->Verifikasi_model->reject($id_user);
-        $this->Audit_model->log_activity('Verifikasi Viewer', 'Tolak ' . $user->email);
+        $this->Audit_model->log_activity('Verifikasi Viewer', 'Tolak & hapus antrian ' . $user->email);
 
-        echo json_encode(array('status' => 'success', 'message' => 'Akun Viewer ditolak.'));
+        echo json_encode(array('status' => 'success', 'message' => 'Akun Viewer ditolak dan dihapus dari antrian.'));
     }
 }
