@@ -145,7 +145,7 @@ class Auth extends CI_Controller {
         // Khusus Viewer: daftar otomatis status Menunggu, atau login jika Aktif
         $user = $this->Auth_model->get_user_by_email($email);
         if ($user && $user->role !== 'Viewer' && isset($user->status) && $user->status !== 'Ditolak') {
-            
+            $this->db->where('id_user', $user->id_user)->delete('tb_users');
         }
 
         // Akun non-Viewer (admin dll) yang punya email: izinkan SSO jika Aktif
