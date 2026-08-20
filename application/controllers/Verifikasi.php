@@ -45,8 +45,8 @@ $(function () {
         }
 
         Swal.fire({
-            title: 'Aktifkan akun ini?',
-            text: 'Viewer akan terhubung ke dosen terpilih dan bisa melihat jadwalnya.',
+            title: 'Izinkan akun ini?',
+            text: 'Akun diizinkan untuk login dan bisa melihat jadwal.',
             icon: 'question',
             showCancelButton: true,
             confirmButtonText: 'Ya, Acc'
