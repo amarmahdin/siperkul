@@ -75,6 +75,7 @@ $(function () {
 
         Swal.fire({
             title: 'Tolak akun ini?',
+            text: 'Akun akan dihapus dari antrian. User bisa login SSO lagi untuk daftar ulang.', 
             icon: 'warning',
             showCancelButton: true,
             confirmButtonText: 'Ya, Tolak'
