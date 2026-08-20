@@ -144,14 +144,8 @@ class Auth extends CI_Controller {
 
         // Khusus Viewer: daftar otomatis status Menunggu, atau login jika Aktif
         $user = $this->Auth_model->get_user_by_email($email);
-        if (!$user) {
-            $user = $this->Auth_model->create_pending_viewer($email, $display_name);
-            $this->session->set_flashdata(
-                'info',
-                'Harap hubungi akademik baa@itpln.ac.id untuk verifikasi'
-            );
-            redirect('auth');
-            return;
+        if ($user && $user->role !== 'Viewer' && isset($user->status) && $user->status !== 'Ditolak') {
+            
         }
 
         // Akun non-Viewer (admin dll) yang punya email: izinkan SSO jika Aktif
