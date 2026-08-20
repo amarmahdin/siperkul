@@ -14,7 +14,6 @@
             <div class="card">
                 <div class="card-header d-flex justify-content-between align-items-center">
                     <h3 class="card-title">Daftar Mata Kuliah</h3>
-                    <button class="btn btn-primary btn-sm ml-auto" onclick="add_mk()"><i class="fas fa-plus"></i> Tambah Data</button>
                 </div>
                 <div class="card-body">
                     <table id="table_mk" class="table table-striped table-bordered dt-responsive nowrap" style="width:100%">
