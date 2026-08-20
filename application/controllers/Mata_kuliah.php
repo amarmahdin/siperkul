@@ -355,52 +355,105 @@ class Mata_kuliah extends CI_Controller {
     }
 
     private function _resolve_prodi_id($attr) {
-        $search = array(
-            'id_prodi',
-            'id_program_studi',
-            'prodi_id',
-            'kode_prodi',
-            'kode_program_studi',
-            'nama_prodi',
-            'prodi',
-            'program_studi',
-            'nama_program_studi'
-        );
+        $kode_api = '';
+        if (isset($attr['id_program_studi']) && trim((string) $attr['id_program_studi']) !== '') {
+            $kode_api = trim((string) $attr['id_program_studi']);
+        } elseif (isset($attr['kode_prodi']) && trim((string) $attr['kode_prodi']) !== '') {
+            $kode_api = trim((string) $attr['kode_prodi']);
+        }
 
-        foreach ($search as $key) {
-            if (!isset($attr[$key]) || $attr[$key] === '') {
-                continue;
-            }
+        $nama_api = '';
+        if (isset($attr['program_studi']) && trim((string) $attr['program_studi']) !== '') {
+            $nama_api = trim((string) $attr['program_studi']);
+        } elseif (isset($attr['nama_prodi']) && trim((string) $attr['nama_prodi']) !== '') {
+            $nama_api = trim((string) $attr['nama_prodi']);
+        } elseif (isset($attr['nama_program_studi']) && trim((string) $attr['nama_program_studi']) !== '') {
+            $nama_api = trim((string) $attr['nama_program_studi']);
+        }
 
-            $value = trim((string) $attr[$key]);
-            if ($value === '') {
-                continue;
-            }
+        if ($kode_api === '' && $nama_api === '') {
+            return null;
+        }
 
-            if (is_numeric($value)) {
-                $row = $this->db->get_where('tb_prodi', array('id_prodi' => intval($value)))->row();
-                if ($row) {
-                    return $row->id_prodi;
-                }
-
-                $row = $this->db->get_where('tb_prodi', array('kode_prodi' => $value))->row();
-                if ($row) {
-                    return $row->id_prodi;
-                }
-            }
-
-            $row = $this->db->group_start()
-                ->where('kode_prodi', $value)
-                ->or_where('LOWER(nama_prodi)', strtolower($value))
-                ->group_end()
-                ->get('tb_prodi')
-                ->row();
+        // 1) Cocokkan kode prodi Sevima/PDDIKTI
+        if ($kode_api !== '') {
+            $row = $this->db->get_where('tb_prodi', array('kode_prodi' => $kode_api))->row();
             if ($row) {
-                return $row->id_prodi;
+                if ($nama_api !== '' && strcasecmp(trim($row->nama_prodi), $nama_api) !== 0) {
+                    // Update nama jika berbeda, tetap pakai id yang sama
+                    $this->db->where('id_prodi', $row->id_prodi)->update('tb_prodi', array('nama_prodi' => $nama_api));
+                }
+                return (int) $row->id_prodi;
             }
         }
 
-        $fallback = $this->db->order_by('id_prodi', 'ASC')->get('tb_prodi')->row();
-        return $fallback ? $fallback->id_prodi : null;
+        // 2) Cocokkan nama lokal (mis. "S1 Teknik Informatika" ~ "TEKNIK INFORMATIKA")
+        //    lalu set kode_prodi ke kode API agar sync berikutnya stabil
+        if ($nama_api !== '') {
+            $norm_api = $this->_normalize_prodi_name($nama_api);
+            $candidates = $this->db->get('tb_prodi')->result();
+            $matched = null;
+            foreach ($candidates as $p) {
+                $norm_local = $this->_normalize_prodi_name($p->nama_prodi);
+                if ($norm_local === $norm_api || strpos($norm_local, $norm_api) !== false || strpos($norm_api, $norm_local) !== false) {
+                    // Hindari tabrakan nama generik jika kode API beda sudah dipakai prodi lain
+                    if ($kode_api !== '') {
+                        $kode_taken = $this->db->get_where('tb_prodi', array('kode_prodi' => $kode_api))->row();
+                        if ($kode_taken && (int) $kode_taken->id_prodi !== (int) $p->id_prodi) {
+                            continue;
+                        }
+                    }
+                    $matched = $p;
+                    break;
+                }
+            }
+
+            if ($matched) {
+                $local_kode = (string) $matched->kode_prodi;
+                $local_is_pddikti = (bool) preg_match('/^\d{5,}$/', $local_kode);
+
+                // Jangan gabungkan prodi PDDIKTI berbeda meski namanya sama
+                // (contoh: TEKNIK MESIN 21103 vs 21201 vs 21401)
+                if ($local_is_pddikti && $kode_api !== '' && $kode_api !== $local_kode) {
+                    $matched = null;
+                }
+            }
+
+            if ($matched) {
+                $update = array();
+                if ($kode_api !== '' && $matched->kode_prodi !== $kode_api) {
+                    $update['kode_prodi'] = $kode_api;
+                }
+                if ($nama_api !== '' && strcasecmp(trim($matched->nama_prodi), $nama_api) !== 0) {
+                    $update['nama_prodi'] = $nama_api;
+                }
+                if (!empty($update)) {
+                    $this->db->where('id_prodi', $matched->id_prodi)->update('tb_prodi', $update);
+                }
+                return (int) $matched->id_prodi;
+            }
+        }
+
+        // 3) Buat prodi baru dari API (jangan fallback ke prodi pertama)
+        $fakultas = $this->db->order_by('id_fakultas', 'ASC')->get('tb_fakultas')->row();
+        if (!$fakultas) {
+            return null;
+        }
+
+        $insert = array(
+            'kode_prodi' => $kode_api !== '' ? $kode_api : ('P' . strtoupper(substr(md5($nama_api), 0, 5))),
+            'nama_prodi' => $nama_api !== '' ? $nama_api : ('Prodi ' . $kode_api),
+            'id_fakultas' => (int) $fakultas->id_fakultas,
+        );
+        $this->db->insert('tb_prodi', $insert);
+        $new_id = (int) $this->db->insert_id();
+        return $new_id > 0 ? $new_id : null;
+    }
+
+    private function _normalize_prodi_name($name) {
+        $n = strtolower(trim((string) $name));
+        $n = preg_replace('/^(s1|s2|s3|d3|d4)\s+/u', '', $n);
+        $n = preg_replace('/\s+/u', ' ', $n);
+        return trim($n);
     }
 }
