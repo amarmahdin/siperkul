@@ -75,7 +75,7 @@ $(function () {
 
         Swal.fire({
             title: 'Tolak akun ini?',
-            text: 'Akun akan dihapus dari antrian. User bisa login SSO lagi untuk daftar ulang.', 
+            text: 'Akun tidak diizinkan untuk login.', 
             icon: 'warning',
             showCancelButton: true,
             confirmButtonText: 'Ya, Tolak'
@@ -125,7 +125,7 @@ JS;
         $this->Verifikasi_model->approve($id_user, $id_dosen);
         $this->Audit_model->log_activity('Verifikasi Viewer', 'Acc ' . $user->email . ' -> dosen ' . $dosen->kode_dosen);
 
-        echo json_encode(array('status' => 'success', 'message' => 'Akun Viewer berhasil diaktifkan dan dihubungkan ke dosen.'));
+        echo json_encode(array('status' => 'success', 'message' => 'Akun Viewer diterima.'));
     }
 
     public function reject() {
@@ -141,7 +141,7 @@ JS;
 
         echo json_encode(array(
             'status' => 'success',
-            'message' => 'Akun ditolak dan dihapus dari antrian. User dapat login SSO lagi untuk mendaftar ulang.'
+            'message' => 'Akun ditolak'
         ));
     }
 }
