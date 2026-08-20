@@ -41,5 +41,6 @@ class Verifikasi_model extends CI_Model {
     public function reject($id_user) {
         $this->db->where('id_user', $id_user);
         $this->db->where('role', 'Viewer');
+        $this->db->where('status', 'Menunggu');
     }
 }
