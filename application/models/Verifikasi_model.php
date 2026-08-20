@@ -24,6 +24,7 @@ class Verifikasi_model extends CI_Model {
        $this->db->from('tb_users');
        $this->db->join('tb_dosen', 'tb_dosen.id_dosen = tb_users.id_dosen', 'left');
        $this->db->where('tb_users.role', 'Viewer');
+       $this->db->where_in('tb_users.status', ['Aktif', 'Menunggu']);
     }
 
     public function approve($id_user, $id_dosen) {
