@@ -11,12 +11,33 @@
 
     <section class="content">
         <div class="container-fluid fade-in">
+            <?php if (!empty($sync_message) && is_array($sync_message)): ?>
+            <div class="alert alert-<?= htmlspecialchars($sync_message['type']) ?> alert-dismissible fade show" role="alert">
+                <?= htmlspecialchars($sync_message['text']) ?>
+                <button type="button" class="close" data-dismiss="alert" aria-label="Close">
+                    <span aria-hidden="true">&times;</span>
+                </button>
+            </div>
+            <?php endif; ?>
+
             <div class="card">
-                <div class="card-header d-flex justify-content-between align-items-center">
-                    <h3 class="card-title">Daftar Ruangan</h3>
-                    <button class="btn btn-primary btn-sm ml-auto" onclick="add_ruangan()"><i class="fas fa-plus"></i> Tambah Data</button>
+                <div class="card-header d-flex justify-content-between align-items-center flex-wrap">
+                    <h3 class="card-title mb-0">Daftar Ruangan</h3>
+                    <div class="d-flex align-items-center ml-auto mt-2 mt-md-0" style="gap: 8px;">
+                        <label class="mb-0 mr-1 text-muted" for="filter_gedung">Filter Kampus/Gedung</label>
+                        <select id="filter_gedung" class="form-control form-control-sm" style="min-width: 220px;">
+                            <option value="">Semua</option>
+                            <?php foreach ($gedung as $g): ?>
+                                <option value="<?= (int) $g->id_gedung ?>"><?= htmlspecialchars($g->nama_gedung) ?></option>
+                            <?php endforeach; ?>
+                        </select>
+                        <button class="btn btn-primary btn-sm" onclick="add_ruangan()"><i class="fas fa-plus"></i> Tambah Data</button>
+                    </div>
                 </div>
                 <div class="card-body">
+                    <p class="text-muted small mb-3">
+                        Catatan: API Sevima <code>/ruang</code> adalah master ruangan (tanpa tahun ajaran). Filter di bawah memakai kampus/gedung dari lokasi API.
+                    </p>
                     <table id="table_ruangan" class="table table-striped table-bordered dt-responsive nowrap" style="width:100%">
                         <thead>
                             <tr>
@@ -24,6 +45,7 @@
                                 <th>Kode Ruangan</th>
                                 <th>Nama Ruangan</th>
                                 <th>Gedung</th>
+                                <th>Lokasi</th>
                                 <th>Lantai</th>
                                 <th>Kapasitas (K)</th>
                                 <th>Kapasitas (U)</th>
@@ -51,7 +73,7 @@
             <div class="modal-body">
                 <form action="#" id="form" class="form-horizontal">
                     <input type="hidden" value="" name="id_ruangan"/>
-                    
+
                     <div class="row">
                         <div class="col-md-6">
                             <div class="form-group mb-3">
@@ -73,8 +95,8 @@
                                 <label class="control-label mb-1">Gedung</label>
                                 <select name="id_gedung" class="form-control select2" style="width: 100%;" required>
                                     <option value="">-- Pilih Gedung --</option>
-                                    <?php foreach($gedung as $g): ?>
-                                        <option value="<?= $g->id_gedung ?>"><?= $g->nama_gedung ?></option>
+                                    <?php foreach ($gedung as $g): ?>
+                                        <option value="<?= $g->id_gedung ?>"><?= htmlspecialchars($g->nama_gedung) ?></option>
                                     <?php endforeach; ?>
                                 </select>
                             </div>
@@ -92,7 +114,7 @@
                             </div>
                         </div>
                     </div>
-                    
+
                     <div class="row">
                         <div class="col-md-4">
                             <div class="form-group mb-3">
@@ -131,22 +153,27 @@
 document.addEventListener('DOMContentLoaded', function () {
     var table;
 
-    // Select2 diinisialisasi global via assets/js/app.js (dengan search)
-
     table = $('#table_ruangan').DataTable({
         "processing": true,
         "serverSide": true,
         "order": [],
         "ajax": {
             "url": "<?= base_url('ruangan/get_data')?>",
-            "type": "POST"
+            "type": "POST",
+            "data": function (d) {
+                d.id_gedung = $('#filter_gedung').val();
+            }
         },
         "columnDefs": [
-            { "targets": [ 0, 8 ], "orderable": false }
+            { "targets": [ 0, 9 ], "orderable": false }
         ],
         "language": {
             "url": "<?= base_url('assets/datatables/i18n/id.json') ?>"
         }
+    });
+
+    $('#filter_gedung').on('change', function () {
+        table.ajax.reload();
     });
 
     $('#table_ruangan').on('click', '.btn-delete', function(){
@@ -169,9 +196,9 @@ document.addEventListener('DOMContentLoaded', function () {
 
     $('#table_ruangan').on('click', '.btn-edit', function(){
         var id = $(this).data('id');
-        $('#form')[0].reset(); 
+        $('#form')[0].reset();
         $('.select2').val('').trigger('change');
-        
+
         $.ajax({
             url : "<?= base_url('ruangan/get_by_id/')?>/" + id,
             type: "GET",
@@ -186,9 +213,9 @@ document.addEventListener('DOMContentLoaded', function () {
                 $('[name="kapasitas_kuliah"]').val(data.kapasitas_kuliah);
                 $('[name="kapasitas_ujian"]').val(data.kapasitas_ujian);
                 $('[name="status"]').val(data.status).trigger('change');
-                
+
                 $('#modal_form').modal('show');
-                $('.modal-title').text('Edit Ruangan'); 
+                $('.modal-title').text('Edit Ruangan');
             },
             error: function (jqXHR, textStatus, errorThrown) {
                 showError('Error!', 'Gagal mengambil data dari ajax');
@@ -208,7 +235,7 @@ document.addEventListener('DOMContentLoaded', function () {
     window.save = function() {
         $('#btnSave').text('Menyimpan...');
         $('#btnSave').attr('disabled',true);
-        
+
         $.ajax({
             url : "<?= base_url('ruangan/save')?>",
             type: "POST",
@@ -233,4 +260,4 @@ document.addEventListener('DOMContentLoaded', function () {
         });
     };
 });
-</script
+</script>
