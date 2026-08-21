@@ -139,16 +139,21 @@ class Jadwal_model extends CI_Model {
         return $this->db->get()->result();
     }
 
-    public function find_existing($id_prodi, $id_mk, $kelas, $hari, $jam_mulai, $id_ta)
+    public function find_existing($id_prodi, $id_mk, $kelas, $hari, $jam_mulai, $id_ta, $jenis_kuliah = null)
     {
-        return $this->db->get_where($this->table, array(
+        $where = array(
             'id_prodi' => $id_prodi,
             'id_mk' => $id_mk,
             'kelas' => $kelas,
             'hari' => $hari,
             'jam_mulai' => $jam_mulai,
             'id_ta' => $id_ta,
-        ))->row();
+        );
+        // Kuliah vs Praktikum di slot sama = entri berbeda
+        if ($jenis_kuliah !== null && $jenis_kuliah !== '' && $this->db->field_exists('jenis_kuliah', $this->table)) {
+            $where['jenis_kuliah'] = $jenis_kuliah;
+        }
+        return $this->db->get_where($this->table, $where)->row();
     }
 
     // CLASH DETECTION ENGINES

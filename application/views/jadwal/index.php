@@ -270,18 +270,32 @@ document.addEventListener('DOMContentLoaded', function () {
                     $('#form_import')[0].reset();
                     Swal.fire('Import Selesai', '', 'success');
                     table.ajax.reload(null, false);
+                } else if (data.status === 'partial') {
+                    $('#modal_import').modal('hide');
+                    $('#form_import')[0].reset();
+                    Swal.fire('Import Selesai', data.message || 'Sebagian data gagal terinput', 'warning');
+                    table.ajax.reload(null, false);
                 } else if (data.status === 'exists') {
                     $('#modal_import').modal('hide');
                     $('#form_import')[0].reset();
                     Swal.fire('Data Sudah Ada', 'File dengan data ini sudah ada.', 'info');
                     table.ajax.reload(null, false);
                 } else {
-                    showError('Import Gagal', data.message);
+                    showError('Import Gagal', data.message || 'Tidak ada data yang diproses.');
                 }
             },
-            error: function () {
+            error: function (jqXHR) {
                 $btn.prop('disabled', false).text('Import Sekarang');
-                showError('Error', 'Gagal mengunggah / memproses file.');
+                var msg = 'Gagal mengunggah / memproses file.';
+                try {
+                    var j = JSON.parse(jqXHR.responseText);
+                    if (j && j.message) msg = j.message;
+                } catch (e) {
+                    if (jqXHR.responseText && jqXHR.responseText.length < 300) {
+                        msg = jqXHR.responseText.replace(/<[^>]+>/g, ' ').trim() || msg;
+                    }
+                }
+                showError('Error', msg);
             }
         });
     });

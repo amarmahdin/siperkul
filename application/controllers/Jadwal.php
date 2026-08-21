@@ -303,17 +303,32 @@ class Jadwal extends CI_Controller {
         }
 
         @set_time_limit(300);
-        $this->_ensure_jadwal_import_columns();
 
         try {
-            $spreadsheet = \PhpOffice\PhpSpreadsheet\IOFactory::load($_FILES['file_excel']['tmp_name']);
-            $sheet = $spreadsheet->getActiveSheet();
-            $rows = $sheet->toArray(null, true, true, true);
-        } catch (Exception $e) {
-            echo json_encode(array('status' => 'error', 'message' => 'Gagal membaca Excel: ' . $e->getMessage()));
-            return;
-        }
+            $this->_ensure_jadwal_import_columns();
 
+            try {
+                $spreadsheet = \PhpOffice\PhpSpreadsheet\IOFactory::load($_FILES['file_excel']['tmp_name']);
+                $sheet = $spreadsheet->getActiveSheet();
+                $rows = $sheet->toArray(null, true, true, true);
+            } catch (Exception $e) {
+                echo json_encode(array('status' => 'error', 'message' => 'Gagal membaca Excel: ' . $e->getMessage()));
+                return;
+            }
+
+            $this->_import_jadwal_rows($rows, $ta_aktif);
+        } catch (Throwable $e) {
+            echo json_encode(array(
+                'status' => 'error',
+                'message' => 'Gagal memproses file: ' . $e->getMessage(),
+            ));
+        }
+    }
+
+    /**
+     * Proses baris Excel setelah file berhasil dibaca.
+     */
+    private function _import_jadwal_rows($rows, $ta_aktif) {
         $header_map = null;
         $header_row_num = null;
         foreach ($rows as $num => $row) {
@@ -342,7 +357,7 @@ class Jadwal extends CI_Controller {
         $skipped = 0;
         $already_mapped = 0;
         $auto_room_count = 0;
-        $errors = array();
+        $failed_nos = array(); // nomor kolom No di Excel yang gagal
         $batch_room_usage = array(); // cegah bentrok antar baris dalam 1 file import
 
         foreach ($rows as $num => $row) {
@@ -361,47 +376,49 @@ class Jadwal extends CI_Controller {
             $target = $this->_cell($row, $header_map, 'target');
             $kurikulum = $this->_cell($row, $header_map, 'kurikulum');
             $ruang_nama = $this->_cell($row, $header_map, 'ruang');
+            $data_no = $this->_excel_data_no($row, $header_map, $num);
 
             if ($hari === '' && $nama_mk === '' && $prodi_nama === '') {
                 continue;
             }
             if ($hari === '' || $nama_mk === '' || $jam === '') {
                 $skipped++;
-                $errors[] = "Baris $num: hari/jam/matakuliah kosong";
+                $failed_nos[] = $data_no;
                 continue;
             }
 
             $times = $this->_parse_jam($jam);
             if (!$times) {
                 $skipped++;
-                $errors[] = "Baris $num: format jam tidak valid ($jam)";
+                $failed_nos[] = $data_no;
                 continue;
             }
 
             $hari = $this->_normalize_hari($hari);
             if ($hari === '') {
                 $skipped++;
-                $errors[] = "Baris $num: hari tidak valid";
+                $failed_nos[] = $data_no;
                 continue;
             }
 
             $id_prodi = $this->_resolve_prodi($prodi_nama);
             if (!$id_prodi) {
                 $skipped++;
-                $errors[] = "Baris $num: prodi tidak ditemukan ($prodi_nama)";
+                $failed_nos[] = $data_no;
                 continue;
             }
 
             $id_mk = $this->_resolve_mk($kode_mk, $nama_mk, $kurikulum, $id_prodi);
             if (!$id_mk) {
                 $skipped++;
-                $errors[] = "Baris $num: mata kuliah tidak ditemukan ($kode_mk $nama_mk / kur $kurikulum)";
+                $failed_nos[] = $data_no;
                 continue;
             }
 
             $kelas = $kelas !== '' ? $kelas : '-';
             $kapasitas = is_numeric($target) ? (int) $target : 0;
             $kelas_key = substr($kelas, 0, 10);
+            $jenis_key = $jenis !== '' ? substr($jenis, 0, 50) : null;
 
             $exist = $this->Jadwal_model->find_existing(
                 $id_prodi,
@@ -409,8 +426,24 @@ class Jadwal extends CI_Controller {
                 $kelas_key,
                 $hari,
                 $times['mulai'],
-                $ta_aktif->id_ta
+                $ta_aktif->id_ta,
+                $jenis_key
             );
+            // Data lama tanpa jenis_kuliah: pakai baris itu bila jenis kosong / sama
+            if (!$exist && $jenis_key) {
+                $legacy = $this->Jadwal_model->find_existing(
+                    $id_prodi,
+                    $id_mk,
+                    $kelas_key,
+                    $hari,
+                    $times['mulai'],
+                    $ta_aktif->id_ta,
+                    null
+                );
+                if ($legacy && (empty($legacy->jenis_kuliah) || $legacy->jenis_kuliah === $jenis_key)) {
+                    $exist = $legacy;
+                }
+            }
 
             // Sudah ada & ruangan sudah termapping → lewati (cegah import berulang merusak data)
             if ($exist && $this->_ruangan_sudah_dimapping($exist->id_ruangan, $id_ruangan_tba)) {
@@ -494,13 +527,17 @@ class Jadwal extends CI_Controller {
             }
         }
 
+        $failed_nos = array_values(array_unique($failed_nos));
+        $fail_msg = $this->_format_failed_import_message($failed_nos);
+
         $this->Audit_model->log_activity(
             'Import Jadwal',
             "Import Excel: +$imported baru, $updated update, $already_mapped sudah ada, $skipped skip, auto-ruang $auto_room_count"
+            . ($fail_msg !== '' ? " | $fail_msg" : '')
         );
 
         // Semua baris valid sudah pernah diimport & ruang sudah termapping
-        if ($imported === 0 && $updated === 0 && $already_mapped > 0) {
+        if ($imported === 0 && $updated === 0 && $already_mapped > 0 && empty($failed_nos)) {
             echo json_encode(array(
                 'status' => 'exists',
                 'message' => 'File dengan data ini sudah ada.',
@@ -508,29 +545,73 @@ class Jadwal extends CI_Controller {
                 'updated' => 0,
                 'skipped' => $skipped,
                 'already_mapped' => $already_mapped,
+                'failed' => array(),
                 'auto_room' => 0,
             ));
             return;
         }
 
-        $msg = "Import selesai.";
-        if (!empty($errors)) {
-            $preview = array_slice($errors, 0, 8);
-            $msg .= ' Detail: ' . implode('; ', $preview);
-            if (count($errors) > 8) {
-                $msg .= ' (+' . (count($errors) - 8) . ' lainnya)';
-            }
+        // Ada nomor yang gagal terinput
+        if (!empty($failed_nos)) {
+            $ok = ($imported + $updated) > 0 || $already_mapped > 0;
+            echo json_encode(array(
+                'status' => $ok ? 'partial' : 'error',
+                'message' => $fail_msg,
+                'imported' => $imported,
+                'updated' => $updated,
+                'skipped' => $skipped,
+                'already_mapped' => $already_mapped,
+                'failed' => $failed_nos,
+                'auto_room' => $auto_room_count,
+            ));
+            return;
+        }
+
+        if (($imported + $updated) > 0) {
+            echo json_encode(array(
+                'status' => 'success',
+                'message' => '',
+                'imported' => $imported,
+                'updated' => $updated,
+                'skipped' => 0,
+                'already_mapped' => $already_mapped,
+                'failed' => array(),
+                'auto_room' => $auto_room_count,
+            ));
+            return;
         }
 
         echo json_encode(array(
-            'status' => ($imported + $updated) > 0 ? 'success' : 'error',
-            'message' => ($imported + $updated) > 0 ? $msg : (empty($errors) ? 'Tidak ada data yang diproses.' : $msg),
-            'imported' => $imported,
-            'updated' => $updated,
+            'status' => 'error',
+            'message' => 'Tidak ada data yang diproses.',
+            'imported' => 0,
+            'updated' => 0,
             'skipped' => $skipped,
             'already_mapped' => $already_mapped,
-            'auto_room' => $auto_room_count,
+            'failed' => array(),
+            'auto_room' => 0,
         ));
+    }
+
+    /**
+     * Nomor data dari kolom No Excel; fallback ke nomor baris sheet.
+     */
+    private function _excel_data_no($row, $header_map, $sheet_row) {
+        $no = $this->_cell($row, $header_map, 'no');
+        if ($no !== '' && is_numeric($no)) {
+            return (string) (int) $no;
+        }
+        return (string) $sheet_row;
+    }
+
+    private function _format_failed_import_message($failed_nos) {
+        if (empty($failed_nos)) {
+            return '';
+        }
+        if (count($failed_nos) === 1) {
+            return 'Data ' . $failed_nos[0] . ' gagal terinput';
+        }
+        return 'Data ' . implode(', ', $failed_nos) . ' gagal terinput';
     }
 
     private function _ruangan_sudah_dimapping($id_ruangan, $id_ruangan_tba) {
@@ -568,7 +649,9 @@ class Jadwal extends CI_Controller {
             if ($l === '') {
                 continue;
             }
-            if (strpos($l, 'nama prodi') !== false || $l === 'prodi') {
+            if ($l === 'no' || $l === 'nomor' || $l === '#') {
+                $map['no'] = $col;
+            } elseif (strpos($l, 'nama prodi') !== false || $l === 'prodi') {
                 $map['prodi'] = $col;
             } elseif ($l === 'hari') {
                 $map['hari'] = $col;
@@ -707,7 +790,75 @@ class Jadwal extends CI_Controller {
             $this->db->where('id_kurikulum', $kurikulum);
         }
         $row = $this->db->get('tb_mata_kuliah')->row();
-        return $row ? (int) $row->id_mk : null;
+        if ($row) {
+            return (int) $row->id_mk;
+        }
+
+        // Fuzzy: typo Excel vs master (contoh: Aljabar Liner → ALJABAR LINIER)
+        return $this->_resolve_mk_fuzzy($nama_mk, $kurikulum, $id_prodi);
+    }
+
+    /**
+     * Cocokkan nama MK dengan toleransi typo kecil.
+     */
+    private function _resolve_mk_fuzzy($nama_mk, $kurikulum, $id_prodi) {
+        $target = $this->_norm_mk_key($nama_mk);
+        if ($target === '') {
+            return null;
+        }
+
+        if ($id_prodi) {
+            $this->db->where('id_prodi', $id_prodi);
+        }
+        if ($kurikulum !== '') {
+            $this->db->where('id_kurikulum', $kurikulum);
+        }
+        $candidates = $this->db->select('id_mk, nama_mk')->get('tb_mata_kuliah')->result();
+        if (empty($candidates) && $kurikulum !== '') {
+            // coba tanpa kurikulum
+            if ($id_prodi) {
+                $this->db->where('id_prodi', $id_prodi);
+            }
+            $candidates = $this->db->select('id_mk, nama_mk')->get('tb_mata_kuliah')->result();
+        }
+
+        $best_id = null;
+        $best_score = 0.0;
+        foreach ($candidates as $c) {
+            $cand = $this->_norm_mk_key($c->nama_mk);
+            if ($cand === '') {
+                continue;
+            }
+            if ($cand === $target) {
+                return (int) $c->id_mk;
+            }
+            similar_text($target, $cand, $pct);
+            $score = $pct / 100.0;
+            // Levenshtein untuk nama pendek/typo 1 huruf
+            $max_len = max(strlen($target), strlen($cand));
+            if ($max_len > 0 && $max_len <= 64) {
+                $lev = levenshtein($target, $cand);
+                $lev_score = 1.0 - ($lev / $max_len);
+                if ($lev_score > $score) {
+                    $score = $lev_score;
+                }
+            }
+            if ($score > $best_score) {
+                $best_score = $score;
+                $best_id = (int) $c->id_mk;
+            }
+        }
+
+        // Ambang: typo 1–2 huruf masih lolos, nama beda jauh tidak
+        return ($best_score >= 0.90) ? $best_id : null;
+    }
+
+    private function _norm_mk_key($nama) {
+        $s = strtoupper($this->_norm_text($nama));
+        // typo umum di Excel: Liner / Linear → Linier
+        $s = str_replace(array('LINER', 'LINEAR'), 'LINIER', $s);
+        $s = preg_replace('/[^A-Z0-9]+/', '', $s);
+        return $s;
     }
 
     /**
@@ -725,7 +876,10 @@ class Jadwal extends CI_Controller {
     }
 
     /**
-     * Cocokkan token Excel vs DB (termasuk inisial: DK≈Dian Kemala, B N≈Bahat Nauli).
+     * Cocokkan token Excel vs DB.
+     * - sama / prefix
+     * - inisial (DK≈Dian Kemala)
+     * - nama pendek di Excel vs nama lengkap di DB (Farid Rifai ⊆ Mochamad Farid Rifai)
      */
     private function _person_tokens_match($excel_core, $db_core) {
         if ($excel_core === '' || $db_core === '') {
@@ -740,49 +894,56 @@ class Jadwal extends CI_Controller {
 
         $ex = preg_split('/\s+/', $excel_core);
         $db = preg_split('/\s+/', $db_core);
-        if (empty($ex) || empty($db) || $ex[0] !== $db[0]) {
+        if (empty($ex) || empty($db)) {
             return false;
         }
 
-        $i = 0;
+        // Semua kata Excel muncul berurutan di nama DB (boleh ada kata di antara)
+        // Contoh: farid rifai ⊆ mochamad farid rifai
         $j = 0;
-        while ($i < count($ex) && $j < count($db)) {
+        $matched = 0;
+        for ($i = 0; $i < count($ex); $i++) {
             $et = $ex[$i];
-            $dt = $db[$j];
-            if ($et === $dt) {
-                $i++;
+            $found = false;
+            while ($j < count($db)) {
+                $dt = $db[$j];
                 $j++;
-                continue;
-            }
-            // "dk" vs "dian"+"kemala"
-            if (strlen($et) >= 2 && strlen($et) <= 3 && ctype_alpha($et)) {
-                $need = strlen($et);
-                $built = '';
-                $k = $j;
-                while ($k < count($db) && strlen($built) < $need) {
-                    $built .= substr($db[$k], 0, 1);
-                    $k++;
+                if ($et === $dt) {
+                    $found = true;
+                    break;
                 }
-                if ($built === $et) {
-                    $i++;
-                    $j = $k;
-                    continue;
+                // inisial tunggal
+                if (strlen($et) === 1 && isset($dt[0]) && $et === $dt[0]) {
+                    $found = true;
+                    break;
+                }
+                if (strlen($dt) === 1 && isset($et[0]) && $dt === $et[0]) {
+                    $found = true;
+                    break;
+                }
+                // inisial gabungan "dk" vs dian+kemala
+                if (strlen($et) >= 2 && strlen($et) <= 3 && ctype_alpha($et)) {
+                    $need = strlen($et);
+                    $built = substr($dt, 0, 1);
+                    $k = $j;
+                    while ($k < count($db) && strlen($built) < $need) {
+                        $built .= substr($db[$k], 0, 1);
+                        $k++;
+                    }
+                    if ($built === $et) {
+                        $j = $k;
+                        $found = true;
+                        break;
+                    }
                 }
             }
-            // "b" vs "bahat" / sebaliknya
-            if (strlen($et) === 1 && isset($dt[0]) && $et === $dt[0]) {
-                $i++;
-                $j++;
-                continue;
+            if (!$found) {
+                return false;
             }
-            if (strlen($dt) === 1 && isset($et[0]) && $dt === $et[0]) {
-                $i++;
-                $j++;
-                continue;
-            }
-            return false;
+            $matched++;
         }
-        return $i === count($ex);
+        // Minimal 2 kata cocok, atau 1 kata jika nama Excel memang 1 token & unik ditangani di resolve
+        return $matched === count($ex) && count($ex) >= 1;
     }
 
     private function _resolve_dosen($nama) {
@@ -802,18 +963,31 @@ class Jadwal extends CI_Controller {
         }
 
         $parts = explode(' ', $core);
-        $first = $parts[0];
-        if ($first === '') {
-            return null;
+        // Ambil kandidat dari setiap token panjang (>=3) agar "Farid" menemukan "Mochamad Farid Rifai"
+        $candidate_map = array();
+        foreach ($parts as $token) {
+            if (strlen($token) < 3) {
+                continue;
+            }
+            $rows = $this->db->like('nama', $token)->get('tb_dosen')->result();
+            foreach ($rows as $c) {
+                $candidate_map[(int) $c->id_dosen] = $c;
+            }
+        }
+        if (empty($candidate_map) && !empty($parts[0])) {
+            $rows = $this->db->like('nama', $parts[0])->get('tb_dosen')->result();
+            foreach ($rows as $c) {
+                $candidate_map[(int) $c->id_dosen] = $c;
+            }
         }
 
-        $candidates = $this->db->like('nama', $first)->get('tb_dosen')->result();
         $best = null;
         $best_score = -1;
-        foreach ($candidates as $c) {
+        foreach ($candidate_map as $c) {
             $c_core = $this->_core_person_name($c->nama);
             if ($this->_person_tokens_match($core, $c_core) || $this->_person_tokens_match($c_core, $core)) {
-                $score = similar_text($core, $c_core);
+                // skor: panjang overlap + prefer nama DB yang mengandung semua token Excel
+                $score = similar_text($core, $c_core) + (substr_count($c_core, ' ') >= substr_count($core, ' ') ? 5 : 0);
                 if ($score > $best_score) {
                     $best_score = $score;
                     $best = $c;
@@ -824,12 +998,11 @@ class Jadwal extends CI_Controller {
             return (int) $best->id_dosen;
         }
 
-        // Fallback: 2 kata pertama sama
+        // Fallback: 2 kata pertama Excel ada di nama DB
         if (count($parts) >= 2) {
-            $prefix = $parts[0] . ' ' . $parts[1];
-            foreach ($candidates as $c) {
+            foreach ($candidate_map as $c) {
                 $c_core = $this->_core_person_name($c->nama);
-                if (strpos($c_core, $prefix) === 0) {
+                if (strpos($c_core, $parts[0]) !== false && strpos($c_core, $parts[1]) !== false) {
                     return (int) $c->id_dosen;
                 }
             }
