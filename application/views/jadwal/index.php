@@ -69,10 +69,6 @@
                 <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
             </div>
             <div class="modal-body">
-                <p class="text-muted small">
-                    Format kolom: No, Nama Prodi, Hari, Jam, Kode MK, Matakuliah, SKS, Kelas, Jenis, Dosen, Target, Kurikulum, Ruang
-                    (seperti file <em>Jadwal Kuliah 20261_Prodi ...xlsx</em>).
-                </p>
                 <form id="form_import" enctype="multipart/form-data">
                     <div class="form-group">
                         <label>File Excel (.xlsx / .xls)</label>
