@@ -80,7 +80,9 @@
                     </div>
                 </form>
                 <div class="alert alert-warning small mb-0 mt-2">
-                    Data masuk ke Tahun Akademik aktif. Ruang/dosen kosong dipetakan ke <strong>BELUM DITENTUKAN</strong>.
+                    Data masuk ke Tahun Akademik aktif. Dosen kosong → <strong>BELUM DITENTUKAN</strong>.
+                    Ruang kosong → dipetakan otomatis (ruangan Aktif, kapasitas &amp; slot kosong).
+                    Jenis <strong>Praktikum</strong> hanya ke ruang kelas — lab tidak dipakai (bisa diedit manual nanti).
                 </div>
             </div>
             <div class="modal-footer">
