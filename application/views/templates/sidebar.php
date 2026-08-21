@@ -108,12 +108,14 @@
                             <p>Sistem Settings</p>
                         </a>
                     </li>
+                    <?php /* Menu Audit Trail disembunyikan sementara
                     <li class="nav-item">
                         <a href="<?= base_url('audit') ?>" class="nav-link <?= ($this->uri->segment(1) == 'audit') ? 'active' : '' ?>">
                             <i class="nav-icon fas fa-history"></i>
                             <p>Audit Trail</p>
                         </a>
                     </li>
+                    */ ?>
                     <?php endif; ?>
                     
                 </ul>
