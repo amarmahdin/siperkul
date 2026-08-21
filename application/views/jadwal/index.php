@@ -79,11 +79,6 @@
                         <input type="file" name="file_excel" id="file_excel" class="form-control" accept=".xlsx,.xls" required>
                     </div>
                 </form>
-                <div class="alert alert-warning small mb-0 mt-2">
-                    Data masuk ke Tahun Akademik aktif. Dosen kosong → <strong>BELUM DITENTUKAN</strong>.
-                    Ruang kosong → dipetakan otomatis ke <strong>ruang kelas Aktif</strong> (kapasitas &amp; slot kosong).
-                    <strong>Laboratorium tidak dipakai</strong> saat auto-mapping — bisa diedit manual nanti.
-                </div>
             </div>
             <div class="modal-footer">
                 <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Batal</button>
