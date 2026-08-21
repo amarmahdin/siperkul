@@ -419,7 +419,8 @@ class Jadwal extends CI_Controller {
                     $times['mulai'],
                     $times['selesai'],
                     $ta_aktif->id_ta,
-                    $batch_room_usage
+                    $batch_room_usage,
+                    $jenis
                 );
                 $auto_mapped = (bool) $id_ruangan;
             }
@@ -827,18 +828,20 @@ class Jadwal extends CI_Controller {
     /**
      * Pilih ruangan aktif (is_aktif API → status Aktif), kapasitas cocok, tidak bentrok.
      * Random di antara kandidat. Fallback: longgarkan max kapasitas jika band kosong.
+     * Praktikum → hanya ruang kelas (bukan lab); lab diisi manual nanti.
      */
-    private function _auto_assign_ruangan($kapasitas_mhs, $hari, $jam_mulai, $jam_selesai, $id_ta, &$batch_usage) {
+    private function _auto_assign_ruangan($kapasitas_mhs, $hari, $jam_mulai, $jam_selesai, $id_ta, &$batch_usage, $jenis = '') {
+        $exclude_lab = $this->_jenis_is_praktikum($jenis);
         $band = $this->_kapasitas_band($kapasitas_mhs);
-        $candidates = $this->_find_ruangan_candidates($band['min'], $band['max'], $hari, $jam_mulai, $jam_selesai, $id_ta, $batch_usage);
+        $candidates = $this->_find_ruangan_candidates($band['min'], $band['max'], $hari, $jam_mulai, $jam_selesai, $id_ta, $batch_usage, $exclude_lab);
 
         // Longgarkan: semua ruang aktif yang muat (>= target)
         if (empty($candidates) && $kapasitas_mhs > 0) {
-            $candidates = $this->_find_ruangan_candidates($kapasitas_mhs, 999, $hari, $jam_mulai, $jam_selesai, $id_ta, $batch_usage);
+            $candidates = $this->_find_ruangan_candidates($kapasitas_mhs, 999, $hari, $jam_mulai, $jam_selesai, $id_ta, $batch_usage, $exclude_lab);
         }
-        // Terakhir: ruang aktif apa pun yang kosong di slot itu
+        // Terakhir: ruang aktif apa pun yang kosong di slot itu (tetap hormati exclude_lab)
         if (empty($candidates)) {
-            $candidates = $this->_find_ruangan_candidates(1, 999, $hari, $jam_mulai, $jam_selesai, $id_ta, $batch_usage);
+            $candidates = $this->_find_ruangan_candidates(1, 999, $hari, $jam_mulai, $jam_selesai, $id_ta, $batch_usage, $exclude_lab);
         }
 
         if (empty($candidates)) {
@@ -849,7 +852,26 @@ class Jadwal extends CI_Controller {
         return (int) $pick->id_ruangan;
     }
 
-    private function _find_ruangan_candidates($min_kap, $max_kap, $hari, $jam_mulai, $jam_selesai, $id_ta, $batch_usage) {
+    private function _jenis_is_praktikum($jenis) {
+        $j = strtolower($this->_norm_text($jenis));
+        return ($j !== '' && strpos($j, 'praktikum') !== false);
+    }
+
+    private function _ruangan_is_lab($nama_ruangan) {
+        $n = strtolower($this->_norm_text($nama_ruangan));
+        if ($n === '') {
+            return false;
+        }
+        // Lab / Laboratory / Laboratorium (termasuk typo Laboratirium/Labortorium)
+        return (bool) preg_match('/\b(lab|laboratory|laborat[ou]?rium)\b/i', $n)
+            || strpos($n, 'laboratorium') !== false
+            || strpos($n, 'laboratory') !== false
+            || preg_match('/\blab\b/i', $n)
+            || strpos($n, 'lab ') !== false
+            || strpos($n, ' lab') !== false;
+    }
+
+    private function _find_ruangan_candidates($min_kap, $max_kap, $hari, $jam_mulai, $jam_selesai, $id_ta, $batch_usage, $exclude_lab = false) {
         $this->db->from('tb_ruangan');
         $this->db->where('status', 'Aktif'); // dari API is_aktif=1
         $this->db->where('kode_ruangan !=', 'TBA');
@@ -863,6 +885,10 @@ class Jadwal extends CI_Controller {
 
         $out = array();
         foreach ($rooms as $room) {
+            if ($exclude_lab && $this->_ruangan_is_lab($room->nama_ruangan)) {
+                continue;
+            }
+
             $id = (int) $room->id_ruangan;
 
             // Bentrok dengan jadwal yang sudah ada di DB
