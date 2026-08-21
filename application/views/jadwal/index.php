@@ -268,7 +268,7 @@ document.addEventListener('DOMContentLoaded', function () {
                 if (data.status === 'success') {
                     $('#modal_import').modal('hide');
                     $('#form_import')[0].reset();
-                    Swal.fire('Import Selesai', data.message, 'success');
+                    Swal.fire('Import Selesai', '', 'success');
                     table.ajax.reload(null, false);
                 } else {
                     showError('Import Gagal', data.message);
