@@ -828,18 +828,19 @@ class Jadwal extends CI_Controller {
     /**
      * Pilih ruangan aktif (is_aktif API → status Aktif), kapasitas cocok, tidak bentrok.
      * Random di antara kandidat. Fallback: longgarkan max kapasitas jika band kosong.
-     * Praktikum → hanya ruang kelas (bukan lab); lab diisi manual nanti.
+     * Auto-mapping: lab TIDAK dipakai (hanya ruang kelas); lab diisi manual nanti.
      */
     private function _auto_assign_ruangan($kapasitas_mhs, $hari, $jam_mulai, $jam_selesai, $id_ta, &$batch_usage, $jenis = '') {
-        $exclude_lab = $this->_jenis_is_praktikum($jenis);
+        // Semua jenis (Kuliah Offline / Praktikum / dll): jangan pakai lab dulu
+        $exclude_lab = true;
         $band = $this->_kapasitas_band($kapasitas_mhs);
         $candidates = $this->_find_ruangan_candidates($band['min'], $band['max'], $hari, $jam_mulai, $jam_selesai, $id_ta, $batch_usage, $exclude_lab);
 
-        // Longgarkan: semua ruang aktif yang muat (>= target)
+        // Longgarkan: semua ruang kelas aktif yang muat (>= target)
         if (empty($candidates) && $kapasitas_mhs > 0) {
             $candidates = $this->_find_ruangan_candidates($kapasitas_mhs, 999, $hari, $jam_mulai, $jam_selesai, $id_ta, $batch_usage, $exclude_lab);
         }
-        // Terakhir: ruang aktif apa pun yang kosong di slot itu (tetap hormati exclude_lab)
+        // Terakhir: ruang kelas aktif apa pun yang kosong di slot itu
         if (empty($candidates)) {
             $candidates = $this->_find_ruangan_candidates(1, 999, $hari, $jam_mulai, $jam_selesai, $id_ta, $batch_usage, $exclude_lab);
         }
@@ -862,13 +863,19 @@ class Jadwal extends CI_Controller {
         if ($n === '') {
             return false;
         }
-        // Lab / Laboratory / Laboratorium (termasuk typo Laboratirium/Labortorium)
-        return (bool) preg_match('/\b(lab|laboratory|laborat[ou]?rium)\b/i', $n)
-            || strpos($n, 'laboratorium') !== false
+        // Lab / Laboratory / Laboratorium (termasuk typo)
+        if (strpos($n, 'laboratorium') !== false
             || strpos($n, 'laboratory') !== false
-            || preg_match('/\blab\b/i', $n)
-            || strpos($n, 'lab ') !== false
-            || strpos($n, ' lab') !== false;
+            || strpos($n, 'laboratirium') !== false
+            || strpos($n, 'labortorium') !== false
+        ) {
+            return true;
+        }
+        // "Lab ..." / "... Lab" / "...Laboratory"
+        if (preg_match('/(^|[^a-z])lab([^a-z]|$)/i', $n)) {
+            return true;
+        }
+        return false;
     }
 
     private function _find_ruangan_candidates($min_kap, $max_kap, $hari, $jam_mulai, $jam_selesai, $id_ta, $batch_usage, $exclude_lab = false) {
