@@ -22,6 +22,7 @@
                     <?php if(in_array($this->session->userdata('role'), ['Administrator', 'BAAK'])): ?>
                     <li class="nav-header">MASTER DATA</li>
                     
+                    <?php /* Menu master disembunyikan sementara
                     <li class="nav-item">
                         <a href="<?= base_url('fakultas') ?>" class="nav-link <?= ($this->uri->segment(1) == 'fakultas') ? 'active' : '' ?>">
                             <i class="nav-icon fas fa-building"></i>
@@ -52,6 +53,7 @@
                             <p>Gedung</p>
                         </a>
                     </li>
+                    */ ?>
                     <li class="nav-item">
                         <a href="<?= base_url('ruangan') ?>" class="nav-link <?= ($this->uri->segment(1) == 'ruangan') ? 'active' : '' ?>">
                             <i class="nav-icon fas fa-door-open"></i>
@@ -74,6 +76,7 @@
                         </a>
                     </li>
 
+                    <?php /* Menu Verifikasi Viewer disembunyikan sementara
                     <?php if(in_array($this->session->userdata('role'), ['Administrator', 'BAAK'])): ?>
                     <li class="nav-header">VERIFIKASI</li>
                     <li class="nav-item">
@@ -95,6 +98,7 @@
                         </a>
                     </li>
                     <?php endif; ?>
+                    */ ?>
 
                     <?php if(in_array($this->session->userdata('role'), ['Administrator'])): ?>
                     <li class="nav-header">PENGATURAN</li>
