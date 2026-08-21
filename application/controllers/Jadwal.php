@@ -340,6 +340,7 @@ class Jadwal extends CI_Controller {
         $imported = 0;
         $updated = 0;
         $skipped = 0;
+        $already_mapped = 0;
         $auto_room_count = 0;
         $errors = array();
         $batch_room_usage = array(); // cegah bentrok antar baris dalam 1 file import
@@ -398,13 +399,39 @@ class Jadwal extends CI_Controller {
                 continue;
             }
 
+            $kelas = $kelas !== '' ? $kelas : '-';
+            $kapasitas = is_numeric($target) ? (int) $target : 0;
+            $kelas_key = substr($kelas, 0, 10);
+
+            $exist = $this->Jadwal_model->find_existing(
+                $id_prodi,
+                $id_mk,
+                $kelas_key,
+                $hari,
+                $times['mulai'],
+                $ta_aktif->id_ta
+            );
+
+            // Sudah ada & ruangan sudah termapping → lewati (cegah import berulang merusak data)
+            if ($exist && $this->_ruangan_sudah_dimapping($exist->id_ruangan, $id_ruangan_tba)) {
+                $already_mapped++;
+                $batch_room_usage[] = array(
+                    'id_ruangan' => (int) $exist->id_ruangan,
+                    'hari' => $hari,
+                    'jam_mulai' => $times['mulai'],
+                    'jam_selesai' => $times['selesai'],
+                );
+                continue;
+            }
+
             $id_dosen = $dosen_nama !== '' ? $this->_resolve_dosen($dosen_nama) : null;
             if (!$id_dosen) {
                 $id_dosen = $id_dosen_tba;
             }
-
-            $kelas = $kelas !== '' ? $kelas : '-';
-            $kapasitas = is_numeric($target) ? (int) $target : 0;
+            // Pertahankan dosen yang sudah valid jika baris lama hanya belum punya ruang
+            if ($exist && !empty($exist->id_dosen) && (int) $exist->id_dosen !== (int) $id_dosen_tba) {
+                $id_dosen = (int) $exist->id_dosen;
+            }
 
             $id_ruangan = null;
             $auto_mapped = false;
@@ -412,7 +439,6 @@ class Jadwal extends CI_Controller {
                 $id_ruangan = $this->_resolve_ruangan($ruang_nama);
             }
             if (!$id_ruangan) {
-                // Excel tanpa ruangan → mapping otomatis (aktif, kapasitas cocok, tidak bentrok)
                 $id_ruangan = $this->_auto_assign_ruangan(
                     $kapasitas,
                     $hari,
@@ -431,7 +457,7 @@ class Jadwal extends CI_Controller {
             $data = array(
                 'id_prodi' => $id_prodi,
                 'id_mk' => $id_mk,
-                'kelas' => substr($kelas, 0, 10),
+                'kelas' => $kelas_key,
                 'id_dosen' => $id_dosen,
                 'hari' => $hari,
                 'jam_mulai' => $times['mulai'],
@@ -446,8 +472,8 @@ class Jadwal extends CI_Controller {
                 $data['jenis_kuliah'] = $jenis !== '' ? substr($jenis, 0, 50) : null;
             }
 
-            $exist = $this->Jadwal_model->find_existing($id_prodi, $id_mk, $data['kelas'], $hari, $times['mulai'], $ta_aktif->id_ta);
             if ($exist) {
+                // Hanya lengkapi mapping ruang (dan field terkait) untuk yang belum termapping
                 $this->Jadwal_model->update(array('id_jadwal' => $exist->id_jadwal), $data);
                 $updated++;
             } else {
@@ -455,7 +481,6 @@ class Jadwal extends CI_Controller {
                 $imported++;
             }
 
-            // Catat pemakaian ruang di batch ini agar baris berikutnya tidak bentrok
             if ($id_ruangan && (int) $id_ruangan !== (int) $id_ruangan_tba) {
                 $batch_room_usage[] = array(
                     'id_ruangan' => (int) $id_ruangan,
@@ -471,14 +496,24 @@ class Jadwal extends CI_Controller {
 
         $this->Audit_model->log_activity(
             'Import Jadwal',
-            "Import Excel: +$imported baru, $updated update, $skipped skip, auto-ruang $auto_room_count"
+            "Import Excel: +$imported baru, $updated update, $already_mapped sudah ada, $skipped skip, auto-ruang $auto_room_count"
         );
 
-        $msg = "Import selesai: $imported ditambah, $updated diperbarui, $skipped dilewati";
-        if ($auto_room_count > 0) {
-            $msg .= ", $auto_room_count ruangan dipetakan otomatis";
+        // Semua baris valid sudah pernah diimport & ruang sudah termapping
+        if ($imported === 0 && $updated === 0 && $already_mapped > 0) {
+            echo json_encode(array(
+                'status' => 'exists',
+                'message' => 'File dengan data ini sudah ada.',
+                'imported' => 0,
+                'updated' => 0,
+                'skipped' => $skipped,
+                'already_mapped' => $already_mapped,
+                'auto_room' => 0,
+            ));
+            return;
         }
-        $msg .= '.';
+
+        $msg = "Import selesai.";
         if (!empty($errors)) {
             $preview = array_slice($errors, 0, 8);
             $msg .= ' Detail: ' . implode('; ', $preview);
@@ -489,12 +524,35 @@ class Jadwal extends CI_Controller {
 
         echo json_encode(array(
             'status' => ($imported + $updated) > 0 ? 'success' : 'error',
-            'message' => $msg,
+            'message' => ($imported + $updated) > 0 ? $msg : (empty($errors) ? 'Tidak ada data yang diproses.' : $msg),
             'imported' => $imported,
             'updated' => $updated,
             'skipped' => $skipped,
+            'already_mapped' => $already_mapped,
             'auto_room' => $auto_room_count,
         ));
+    }
+
+    private function _ruangan_sudah_dimapping($id_ruangan, $id_ruangan_tba) {
+        $id_ruangan = (int) $id_ruangan;
+        if ($id_ruangan <= 0) {
+            return false;
+        }
+        if ($id_ruangan === (int) $id_ruangan_tba) {
+            return false;
+        }
+        $row = $this->db->select('kode_ruangan, nama_ruangan')
+            ->from('tb_ruangan')
+            ->where('id_ruangan', $id_ruangan)
+            ->get()
+            ->row();
+        if (!$row) {
+            return false;
+        }
+        if ($row->kode_ruangan === 'TBA' || stripos($row->nama_ruangan, 'BELUM DITENTUKAN') !== false) {
+            return false;
+        }
+        return true;
     }
 
     private function _ensure_jadwal_import_columns() {

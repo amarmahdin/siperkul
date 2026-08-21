@@ -270,6 +270,11 @@ document.addEventListener('DOMContentLoaded', function () {
                     $('#form_import')[0].reset();
                     Swal.fire('Import Selesai', '', 'success');
                     table.ajax.reload(null, false);
+                } else if (data.status === 'exists') {
+                    $('#modal_import').modal('hide');
+                    $('#form_import')[0].reset();
+                    Swal.fire('Data Sudah Ada', 'File dengan data ini sudah ada.', 'info');
+                    table.ajax.reload(null, false);
                 } else {
                     showError('Import Gagal', data.message);
                 }
