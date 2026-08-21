@@ -128,11 +128,13 @@
                 </button>
             </form>
 
+            <?php /* SSO Microsoft dinonaktifkan sementara
             <div class="text-center my-3 text-muted">atau</div>
 
             <a href="<?= base_url('auth/microsoft_login') ?>" class="btn btn-outline-primary w-100">
                 <i class="fab fa-microsoft me-1"></i> Login dengan Microsoft
             </a>
+            */ ?>
         </div>
     </div>
 </div>
