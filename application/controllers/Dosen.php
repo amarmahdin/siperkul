@@ -16,7 +16,7 @@ class Dosen extends CI_Controller {
 
     public function index() {
         $data['title'] = 'Data Dosen';
-        $data['sync_message'] = $this->_sync_sevima();
+        $this->_sync_sevima(); // sync diam-diam, tanpa pesan di UI
         
         $this->load->view('templates/header', $data);
         $this->load->view('templates/sidebar', $data);

@@ -11,15 +11,6 @@
 
     <section class="content">
         <div class="container-fluid fade-in">
-            <?php if (!empty($sync_message) && is_array($sync_message)): ?>
-            <div class="alert alert-<?= htmlspecialchars($sync_message['type']) ?> alert-dismissible fade show" role="alert">
-                <?= htmlspecialchars($sync_message['text']) ?>
-                <button type="button" class="close" data-dismiss="alert" aria-label="Close">
-                    <span aria-hidden="true">&times;</span>
-                </button>
-            </div>
-            <?php endif; ?>
-
             <div class="card">
                 <div class="card-header d-flex justify-content-between align-items-center flex-wrap">
                     <h3 class="card-title mb-0">Daftar Ruangan</h3>

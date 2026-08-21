@@ -17,7 +17,7 @@ class Ruangan extends CI_Controller {
     public function index() {
         $data['title'] = 'Data Ruangan';
         $data['gedung'] = $this->db->order_by('nama_gedung', 'ASC')->get('tb_gedung')->result();
-        $data['sync_message'] = $this->_sync_sevima();
+        $this->_sync_sevima(); // sync diam-diam, tanpa pesan di UI
 
         $this->load->view('templates/header', $data);
         $this->load->view('templates/sidebar', $data);
