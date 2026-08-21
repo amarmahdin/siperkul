@@ -45,7 +45,7 @@ class Monitoring extends CI_Controller {
             $id_dosen = $this->session->userdata('id_dosen') ? $this->session->userdata('id_dosen') : 0;
         }
 
-        $ruangan = $this->Monitoring_model->get_ruangan($id_gedung, $id_dosen);
+        $ruangan = $this->Monitoring_model->get_ruangan($id_gedung, $id_dosen, $hari, $id_ta);
         $jadwal = $this->Monitoring_model->get_jadwal_by_hari($hari, $id_ta, $id_dosen);
 
         // Jam slots 07:00 to 18:00 (default), dynamic if schedules go beyond
