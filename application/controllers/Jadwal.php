@@ -340,7 +340,9 @@ class Jadwal extends CI_Controller {
         $imported = 0;
         $updated = 0;
         $skipped = 0;
+        $auto_room_count = 0;
         $errors = array();
+        $batch_room_usage = array(); // cegah bentrok antar baris dalam 1 file import
 
         foreach ($rows as $num => $row) {
             if ($num <= $header_row_num) {
@@ -401,13 +403,29 @@ class Jadwal extends CI_Controller {
                 $id_dosen = $id_dosen_tba;
             }
 
-            $id_ruangan = $ruang_nama !== '' ? $this->_resolve_ruangan($ruang_nama) : null;
+            $kelas = $kelas !== '' ? $kelas : '-';
+            $kapasitas = is_numeric($target) ? (int) $target : 0;
+
+            $id_ruangan = null;
+            $auto_mapped = false;
+            if ($ruang_nama !== '') {
+                $id_ruangan = $this->_resolve_ruangan($ruang_nama);
+            }
+            if (!$id_ruangan) {
+                // Excel tanpa ruangan → mapping otomatis (aktif, kapasitas cocok, tidak bentrok)
+                $id_ruangan = $this->_auto_assign_ruangan(
+                    $kapasitas,
+                    $hari,
+                    $times['mulai'],
+                    $times['selesai'],
+                    $ta_aktif->id_ta,
+                    $batch_room_usage
+                );
+                $auto_mapped = (bool) $id_ruangan;
+            }
             if (!$id_ruangan) {
                 $id_ruangan = $id_ruangan_tba;
             }
-
-            $kelas = $kelas !== '' ? $kelas : '-';
-            $kapasitas = is_numeric($target) ? (int) $target : 0;
 
             $data = array(
                 'id_prodi' => $id_prodi,
@@ -432,18 +450,34 @@ class Jadwal extends CI_Controller {
                 $this->Jadwal_model->update(array('id_jadwal' => $exist->id_jadwal), $data);
                 $updated++;
             } else {
-                // Bentrok ruang/dosen: tetap simpan agar import lengkap; admin bisa rapikan nanti
                 $this->Jadwal_model->save($data);
                 $imported++;
+            }
+
+            // Catat pemakaian ruang di batch ini agar baris berikutnya tidak bentrok
+            if ($id_ruangan && (int) $id_ruangan !== (int) $id_ruangan_tba) {
+                $batch_room_usage[] = array(
+                    'id_ruangan' => (int) $id_ruangan,
+                    'hari' => $hari,
+                    'jam_mulai' => $times['mulai'],
+                    'jam_selesai' => $times['selesai'],
+                );
+            }
+            if ($auto_mapped) {
+                $auto_room_count++;
             }
         }
 
         $this->Audit_model->log_activity(
             'Import Jadwal',
-            "Import Excel: +$imported baru, $updated update, $skipped skip"
+            "Import Excel: +$imported baru, $updated update, $skipped skip, auto-ruang $auto_room_count"
         );
 
-        $msg = "Import selesai: $imported ditambah, $updated diperbarui, $skipped dilewati.";
+        $msg = "Import selesai: $imported ditambah, $updated diperbarui, $skipped dilewati";
+        if ($auto_room_count > 0) {
+            $msg .= ", $auto_room_count ruangan dipetakan otomatis";
+        }
+        $msg .= '.';
         if (!empty($errors)) {
             $preview = array_slice($errors, 0, 8);
             $msg .= ' Detail: ' . implode('; ', $preview);
@@ -458,6 +492,7 @@ class Jadwal extends CI_Controller {
             'imported' => $imported,
             'updated' => $updated,
             'skipped' => $skipped,
+            'auto_room' => $auto_room_count,
         ));
     }
 
@@ -761,6 +796,101 @@ class Jadwal extends CI_Controller {
         $this->db->like('nama_ruangan', $nama);
         $row = $this->db->get('tb_ruangan')->row();
         return $row ? (int) $row->id_ruangan : null;
+    }
+
+    /**
+     * Band kapasitas mirip permintaan user:
+     * target 26 → cari ruang kap ~20-40; target 40+ → band setingkat.
+     * Wajib kapasitas_kuliah >= target agar muat.
+     */
+    private function _kapasitas_band($target) {
+        $target = (int) $target;
+        if ($target <= 0) {
+            return array('min' => 1, 'max' => 999);
+        }
+        if ($target <= 20) {
+            return array('min' => $target, 'max' => 40);
+        }
+        if ($target <= 40) {
+            return array('min' => $target, 'max' => 50); // cakupan ~20-40/50 untuk kelas menengah
+        }
+        if ($target <= 60) {
+            return array('min' => $target, 'max' => 80);
+        }
+        return array('min' => $target, 'max' => $target + 40);
+    }
+
+    private function _waktu_overlap($mulai_a, $selesai_a, $mulai_b, $selesai_b) {
+        return ($mulai_a < $selesai_b) && ($selesai_a > $mulai_b);
+    }
+
+    /**
+     * Pilih ruangan aktif (is_aktif API → status Aktif), kapasitas cocok, tidak bentrok.
+     * Random di antara kandidat. Fallback: longgarkan max kapasitas jika band kosong.
+     */
+    private function _auto_assign_ruangan($kapasitas_mhs, $hari, $jam_mulai, $jam_selesai, $id_ta, &$batch_usage) {
+        $band = $this->_kapasitas_band($kapasitas_mhs);
+        $candidates = $this->_find_ruangan_candidates($band['min'], $band['max'], $hari, $jam_mulai, $jam_selesai, $id_ta, $batch_usage);
+
+        // Longgarkan: semua ruang aktif yang muat (>= target)
+        if (empty($candidates) && $kapasitas_mhs > 0) {
+            $candidates = $this->_find_ruangan_candidates($kapasitas_mhs, 999, $hari, $jam_mulai, $jam_selesai, $id_ta, $batch_usage);
+        }
+        // Terakhir: ruang aktif apa pun yang kosong di slot itu
+        if (empty($candidates)) {
+            $candidates = $this->_find_ruangan_candidates(1, 999, $hari, $jam_mulai, $jam_selesai, $id_ta, $batch_usage);
+        }
+
+        if (empty($candidates)) {
+            return null;
+        }
+
+        $pick = $candidates[array_rand($candidates)];
+        return (int) $pick->id_ruangan;
+    }
+
+    private function _find_ruangan_candidates($min_kap, $max_kap, $hari, $jam_mulai, $jam_selesai, $id_ta, $batch_usage) {
+        $this->db->from('tb_ruangan');
+        $this->db->where('status', 'Aktif'); // dari API is_aktif=1
+        $this->db->where('kode_ruangan !=', 'TBA');
+        $this->db->where('nama_ruangan !=', 'BELUM DITENTUKAN');
+        $this->db->where('kapasitas_kuliah >=', (int) $min_kap);
+        $this->db->where('kapasitas_kuliah <=', (int) $max_kap);
+        $rooms = $this->db->get()->result();
+        if (empty($rooms)) {
+            return array();
+        }
+
+        $out = array();
+        foreach ($rooms as $room) {
+            $id = (int) $room->id_ruangan;
+
+            // Bentrok dengan jadwal yang sudah ada di DB
+            if ($this->Jadwal_model->cek_bentrok_ruang($id, $hari, $jam_mulai, $jam_selesai, $id_ta, null)) {
+                continue;
+            }
+
+            // Bentrok dengan baris lain dalam file import yang sama
+            $conflict_batch = false;
+            foreach ($batch_usage as $u) {
+                if ((int) $u['id_ruangan'] !== $id) {
+                    continue;
+                }
+                if ($u['hari'] !== $hari) {
+                    continue;
+                }
+                if ($this->_waktu_overlap($jam_mulai, $jam_selesai, $u['jam_mulai'], $u['jam_selesai'])) {
+                    $conflict_batch = true;
+                    break;
+                }
+            }
+            if ($conflict_batch) {
+                continue;
+            }
+
+            $out[] = $room;
+        }
+        return $out;
     }
 
     private function _get_or_create_dosen_tba() {
