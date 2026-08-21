@@ -21,6 +21,11 @@ class Jadwal_model extends CI_Model {
         // Only show for active TA
         $this->db->where('tb_tahun_akademik.status', 1);
 
+        $id_kurikulum = $this->input->post('id_kurikulum');
+        if ($id_kurikulum !== null && $id_kurikulum !== '') {
+            $this->db->where('tb_mata_kuliah.id_kurikulum', $id_kurikulum);
+        }
+
         // Viewer (dosen) hanya melihat jadwal yang diampu sendiri
         if ($this->session->userdata('role') === 'Viewer') {
             $id_dosen = $this->session->userdata('id_dosen');
@@ -110,6 +115,40 @@ class Jadwal_model extends CI_Model {
     {
         $this->db->where('id_jadwal', $id);
         $this->db->delete($this->table);
+    }
+
+    public function get_for_export($id_ta, $id_kurikulum = null)
+    {
+        $this->db->select('tb_jadwal.*, tb_prodi.nama_prodi, tb_mata_kuliah.kode_mk, tb_mata_kuliah.nama_mk, tb_mata_kuliah.sks, tb_mata_kuliah.id_kurikulum, tb_dosen.nama as nama_dosen, tb_ruangan.nama_ruangan, tb_ruangan.kode_ruangan');
+        $this->db->from($this->table);
+        $this->db->join('tb_prodi', 'tb_prodi.id_prodi = tb_jadwal.id_prodi');
+        $this->db->join('tb_mata_kuliah', 'tb_mata_kuliah.id_mk = tb_jadwal.id_mk');
+        $this->db->join('tb_dosen', 'tb_dosen.id_dosen = tb_jadwal.id_dosen');
+        $this->db->join('tb_ruangan', 'tb_ruangan.id_ruangan = tb_jadwal.id_ruangan');
+        $this->db->where('tb_jadwal.id_ta', (int) $id_ta);
+        $this->db->where('tb_jadwal.status', 'Aktif');
+        if ($id_kurikulum !== null && $id_kurikulum !== '') {
+            $this->db->where('tb_mata_kuliah.id_kurikulum', $id_kurikulum);
+        }
+        if ($this->session->userdata('role') === 'Viewer') {
+            $id_dosen = $this->session->userdata('id_dosen');
+            $this->db->where('tb_jadwal.id_dosen', $id_dosen ? $id_dosen : 0);
+        }
+        $this->db->order_by("FIELD(tb_jadwal.hari,'Senin','Selasa','Rabu','Kamis','Jumat','Sabtu','Minggu')", '', false);
+        $this->db->order_by('tb_jadwal.jam_mulai', 'ASC');
+        return $this->db->get()->result();
+    }
+
+    public function find_existing($id_prodi, $id_mk, $kelas, $hari, $jam_mulai, $id_ta)
+    {
+        return $this->db->get_where($this->table, array(
+            'id_prodi' => $id_prodi,
+            'id_mk' => $id_mk,
+            'kelas' => $kelas,
+            'hari' => $hari,
+            'jam_mulai' => $jam_mulai,
+            'id_ta' => $id_ta,
+        ))->row();
     }
 
     // CLASH DETECTION ENGINES

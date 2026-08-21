@@ -31,13 +31,10 @@
                                 <option value="<?= (int) $g->id_gedung ?>"><?= htmlspecialchars($g->nama_gedung) ?></option>
                             <?php endforeach; ?>
                         </select>
-                        <button class="btn btn-primary btn-sm" onclick="add_ruangan()"><i class="fas fa-plus"></i> Tambah Data</button>
+                        <?php /* <button class="btn btn-primary btn-sm" onclick="add_ruangan()"><i class="fas fa-plus"></i> Tambah Data</button> */ ?>
                     </div>
                 </div>
                 <div class="card-body">
-                    <p class="text-muted small mb-3">
-                        Catatan: API Sevima <code>/ruang</code> adalah master ruangan (tanpa tahun ajaran). Filter di bawah memakai kampus/gedung dari lokasi API.
-                    </p>
                     <table id="table_ruangan" class="table table-striped table-bordered dt-responsive nowrap" style="width:100%">
                         <thead>
                             <tr>
