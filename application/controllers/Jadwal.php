@@ -515,7 +515,8 @@ class Jadwal extends CI_Controller {
             return '';
         }
         $s = trim((string) $val);
-        $s = str_replace(array("\xc2\xa0", "\xA0"), ' ', $s);
+        // NBSP + line break di sel Excel (prodi wrap) → spasi
+        $s = str_replace(array("\xc2\xa0", "\xA0", "\r\n", "\r", "\n"), ' ', $s);
         $s = preg_replace('/\s+/u', ' ', $s);
         return trim($s);
     }
@@ -615,12 +616,79 @@ class Jadwal extends CI_Controller {
         return $row ? (int) $row->id_mk : null;
     }
 
+    /**
+     * Nama inti dosen tanpa gelar (untuk matching fuzzy).
+     */
     private function _core_person_name($nama) {
         $s = strtolower($this->_norm_text($nama));
-        $s = preg_replace('/\b(dr|dra|ir|prof|h|hj|st|mt|mkom|mti|msi|mm|mmi|mmat|ssi|skom|phd|m\.?kom|m\.?t\.?i|s\.?kom|s\.?si|s\.?t|s\.?mat|m\.?mat|m\.?sc|m\.?m)\b\.?/u', ' ', $s);
+        $gelar = 'dr|dra|ir|prof|h|hj|st|mt|mkom|mti|msi|mmsi|mm|mmi|mmat|ssi|skom|spd|mpd|phd|'
+            . 'm\.?\s*kom|m\.?\s*t\.?\s*i|m\.?\s*m\.?\s*s\.?\s*i|m\.?\s*msi|s\.?\s*kom|s\.?\s*si|'
+            . 's\.?\s*t|s\.?\s*mat|m\.?\s*mat|m\.?\s*sc|m\.?\s*m|s\.?\s*pd|m\.?\s*pd|p\.?\s*h\.?\s*d';
+        $s = preg_replace('/\b(' . $gelar . ')\b\.?/iu', ' ', $s);
         $s = preg_replace('/[^a-z\s]/', ' ', $s);
         $s = preg_replace('/\s+/', ' ', $s);
         return trim($s);
+    }
+
+    /**
+     * Cocokkan token Excel vs DB (termasuk inisial: DK≈Dian Kemala, B N≈Bahat Nauli).
+     */
+    private function _person_tokens_match($excel_core, $db_core) {
+        if ($excel_core === '' || $db_core === '') {
+            return false;
+        }
+        if ($excel_core === $db_core) {
+            return true;
+        }
+        if (strpos($db_core, $excel_core) === 0 || strpos($excel_core, $db_core) === 0) {
+            return true;
+        }
+
+        $ex = preg_split('/\s+/', $excel_core);
+        $db = preg_split('/\s+/', $db_core);
+        if (empty($ex) || empty($db) || $ex[0] !== $db[0]) {
+            return false;
+        }
+
+        $i = 0;
+        $j = 0;
+        while ($i < count($ex) && $j < count($db)) {
+            $et = $ex[$i];
+            $dt = $db[$j];
+            if ($et === $dt) {
+                $i++;
+                $j++;
+                continue;
+            }
+            // "dk" vs "dian"+"kemala"
+            if (strlen($et) >= 2 && strlen($et) <= 3 && ctype_alpha($et)) {
+                $need = strlen($et);
+                $built = '';
+                $k = $j;
+                while ($k < count($db) && strlen($built) < $need) {
+                    $built .= substr($db[$k], 0, 1);
+                    $k++;
+                }
+                if ($built === $et) {
+                    $i++;
+                    $j = $k;
+                    continue;
+                }
+            }
+            // "b" vs "bahat" / sebaliknya
+            if (strlen($et) === 1 && isset($dt[0]) && $et === $dt[0]) {
+                $i++;
+                $j++;
+                continue;
+            }
+            if (strlen($dt) === 1 && isset($et[0]) && $dt === $et[0]) {
+                $i++;
+                $j++;
+                continue;
+            }
+            return false;
+        }
+        return $i === count($ex);
     }
 
     private function _resolve_dosen($nama) {
@@ -634,12 +702,6 @@ class Jadwal extends CI_Controller {
             return (int) $row->id_dosen;
         }
 
-        $this->db->like('nama', $nama);
-        $row = $this->db->get('tb_dosen')->row();
-        if ($row) {
-            return (int) $row->id_dosen;
-        }
-
         $core = $this->_core_person_name($nama);
         if ($core === '') {
             return null;
@@ -647,17 +709,38 @@ class Jadwal extends CI_Controller {
 
         $parts = explode(' ', $core);
         $first = $parts[0];
-        $last = end($parts);
+        if ($first === '') {
+            return null;
+        }
+
         $candidates = $this->db->like('nama', $first)->get('tb_dosen')->result();
+        $best = null;
+        $best_score = -1;
         foreach ($candidates as $c) {
             $c_core = $this->_core_person_name($c->nama);
-            if ($c_core === $core) {
-                return (int) $c->id_dosen;
-            }
-            if ($last && $last !== $first && strpos($c_core, $first) !== false && strpos($c_core, $last) !== false) {
-                return (int) $c->id_dosen;
+            if ($this->_person_tokens_match($core, $c_core) || $this->_person_tokens_match($c_core, $core)) {
+                $score = similar_text($core, $c_core);
+                if ($score > $best_score) {
+                    $best_score = $score;
+                    $best = $c;
+                }
             }
         }
+        if ($best) {
+            return (int) $best->id_dosen;
+        }
+
+        // Fallback: 2 kata pertama sama
+        if (count($parts) >= 2) {
+            $prefix = $parts[0] . ' ' . $parts[1];
+            foreach ($candidates as $c) {
+                $c_core = $this->_core_person_name($c->nama);
+                if (strpos($c_core, $prefix) === 0) {
+                    return (int) $c->id_dosen;
+                }
+            }
+        }
+
         return null;
     }
 
